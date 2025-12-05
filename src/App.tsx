@@ -1,25 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp, getApps, getApp, FirebaseApp, FirebaseOptions } from 'firebase/app';
 import { getAuth, onAuthStateChanged, signInAnonymously, updateProfile, signOut, Auth, User, signInWithCustomToken } from 'firebase/auth';
-import { 
-  getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, 
-  query, orderBy, Firestore, enableIndexedDbPersistence, disableNetwork, enableNetwork 
-} from 'firebase/firestore';
+import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, query, orderBy, Firestore, enableNetwork, disableNetwork } from 'firebase/firestore';
 import { 
   Layout, Plus, Search, Cloud, Settings, LogOut, 
   CreditCard, Loader2, Sparkles, Folder, 
   Bell, Command, ChevronRight, MoreHorizontal,
   Calendar, CheckCircle2, Circle, ArrowLeft, BrainCircuit,
-  Workflow, List, Network, Trash2, LogIn, UserCircle, 
-  Wifi, WifiOff, CloudLightning, Check, RefreshCw
+  Workflow, List, Network, Globe, X, Trash2, LogIn, UserCircle, 
+  AlertTriangle, Wifi, WifiOff, CloudLightning, Check, RefreshCw, HardDrive, Database
 } from 'lucide-react';
 
 // ==============================================================================
 // 1. 🟢 配置区域
 // ==============================================================================
 const MANUAL_CONFIG = {
-  // ⚠️ 想要真的同步到云端，这里必须填入真实的 Firebase 配置
-  // 如果这里是空的或者假的，应用会自动降级为纯本地模式，不会报错，但只能在一台电脑上看
+  // ⚠️ 请填入你的真实 Firebase 配置，以便启用云同步
+  // 即使没填或填错，本版本也会自动降级为“纯本地模式”，保证能用
   apiKey: "AIzaSyDriBJ3yHf2XnNf5ouXd7S_KZsMu7V4w58", 
   authDomain: "", 
   projectId: "project-nexus-demo", 
@@ -33,38 +30,40 @@ declare global {
 }
 
 // ==============================================================================
-// 2. 🌍 多语言字典
+// 2. 💾 本地优先引擎 (Local-First Engine)
 // ==============================================================================
-const TRANSLATIONS = {
-  en: {
-    login: { title: "Welcome to Nexus", subtitle: "Enter your workspace name.", placeholder: "Your Name", btn: "Enter Workspace", loading: "Connecting..." },
-    sidebar: { workspace: "WORKSPACE", myProjects: "My Projects", logout: "Log Out" },
-    dashboard: { welcome: "Welcome,", subtitle: "Your projects are syncing in the background.", newProject: "New Project", noProjects: "No projects yet. Start building!", createBtn: "Create Project" },
-    modal: { createTitle: "Create New Project", nameLabel: "Name", descLabel: "Description", cancel: "Cancel", create: "Create" },
-    sync: { saved: "Saved to Cloud", syncing: "Syncing...", offline: "Offline Mode" }
-  },
-  zh: {
-    login: { title: "欢迎来到 Project Nexus", subtitle: "输入名字，开启极速工作流。", placeholder: "你的昵称", btn: "进入工作区", loading: "正在连接..." },
-    sidebar: { workspace: "工作区", myProjects: "我的项目库", logout: "退出登录" },
-    dashboard: { welcome: "欢迎回来，", subtitle: "你的项目正在后台自动同步。", newProject: "新建项目", noProjects: "暂无项目。创建你的第一个作品！", createBtn: "立即创建" },
-    modal: { createTitle: "创建新项目", nameLabel: "项目名称", descLabel: "项目简介", cancel: "取消", create: "确认创建" },
-    sync: { saved: "已同步云端", syncing: "正在同步...", offline: "离线模式" }
-  }
-};
+const LOCAL_STORAGE_KEY = 'nexus_projects_v2';
 
 type Project = { 
   id: string; 
   title: string; 
   description: string; 
   progress: number; 
-  createdAt: any; 
+  createdAt: number; 
   modules?: any[]; 
-  fromCache?: boolean; // 标记数据是否来自本地缓存
-  hasPendingWrites?: boolean; // 标记是否有待上传的数据
+  syncStatus: 'synced' | 'pending' | 'error'; // 这一行是关键，追踪每条数据的同步状态
 };
 
 // ==============================================================================
-// 3. 🔐 登录组件
+// 3. 🌍 多语言
+// ==============================================================================
+const TRANSLATIONS = {
+  en: {
+    login: { title: "Nexus Workspace", subtitle: "Local-First + Cloud Sync.", placeholder: "Your Name", btn: "Enter" },
+    dashboard: { welcome: "Welcome,", subtitle: "Projects load instantly from local storage.", newProject: "New Project", noProjects: "No projects. Start building!", createBtn: "Create" },
+    modal: { createTitle: "New Project", nameLabel: "Name", descLabel: "Description", cancel: "Cancel", create: "Create" },
+    status: { saved: "Cloud Synced", pending: "Local Only", error: "Sync Failed" }
+  },
+  zh: {
+    login: { title: "Nexus 工作台", subtitle: "本地优先架构 + 云端自动同步", placeholder: "你的昵称", btn: "进入工作区" },
+    dashboard: { welcome: "欢迎回来，", subtitle: "所有操作即时响应，后台自动同步云端。", newProject: "新建项目", noProjects: "暂无项目。创建你的第一个作品！", createBtn: "立即创建" },
+    modal: { createTitle: "创建新项目", nameLabel: "项目名称", descLabel: "项目简介", cancel: "取消", create: "确认创建" },
+    status: { saved: "已同步云端", pending: "仅本地保存", error: "同步失败(权限/网络)" }
+  }
+};
+
+// ==============================================================================
+// 4. 🔐 登录组件
 // ==============================================================================
 const LoginScreen = ({ onLogin, lang, setLang, isLoggingIn }: any) => {
   const [name, setName] = useState('');
@@ -89,7 +88,7 @@ const LoginScreen = ({ onLogin, lang, setLang, isLoggingIn }: any) => {
           </div>
           <button disabled={isLoggingIn || !name.trim()} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-xl shadow-xl shadow-indigo-200 transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2">
             {isLoggingIn ? <Loader2 className="animate-spin" /> : <LogIn size={20} />}
-            {isLoggingIn ? t.loading : t.btn}
+            {isLoggingIn ? "Connecting..." : t.btn}
           </button>
         </form>
       </div>
@@ -98,104 +97,154 @@ const LoginScreen = ({ onLogin, lang, setLang, isLoggingIn }: any) => {
 };
 
 // ==============================================================================
-// 4. 🏗️ 主应用组件 (带乐观 UI)
+// 5. 🏗️ 主应用组件 (核心逻辑)
 // ==============================================================================
-const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore, auth: Auth, appId: string }) => {
+const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | null, auth: Auth | null, appId: string }) => {
   const [lang, setLang] = useState<'en' | 'zh'>('zh'); 
   const [projects, setProjects] = useState<Project[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newProjectTitle, setNewProjectTitle] = useState('');
   const [newProjectDesc, setNewProjectDesc] = useState('');
-  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'offline'>('synced');
   
+  // 核心状态：是否连上了云端
+  const [isCloudConnected, setIsCloudConnected] = useState(false);
+
   const t = TRANSLATIONS[lang];
 
-  // 🟢 监听数据 (使用 Snapshot 实现即时响应)
+  // 🔄 初始化：加载本地数据
+  useEffect(() => {
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // 按时间倒序
+        parsed.sort((a: any, b: any) => b.createdAt - a.createdAt);
+        setProjects(parsed);
+      } catch (e) { console.error("Local storage parse error", e); }
+    }
+  }, []);
+
+  // 🔄 监听云端数据 (后台静默合并)
   useEffect(() => {
     if (!user || !db) return;
+
+    // 尝试连接
+    const q = query(collection(db, 'artifacts', appId, 'users', user.uid, 'projects'));
     
-    // 查询
-    const q = query(
-      collection(db, 'artifacts', appId, 'users', user.uid, 'projects'),
-      orderBy('createdAt', 'desc')
-    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      // 成功连接到云端！
+      setIsCloudConnected(true);
+      
+      const cloudProjects = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        syncStatus: 'synced' // 来自云端的肯定已同步
+      })) as Project[];
 
-    const unsubscribe = onSnapshot(q, 
-      (snapshot) => {
-        // snapshot.metadata.hasPendingWrites 为 true 表示数据在本地写了，但还没传到服务器
-        // 这就是 "乐观更新" 的核心标志
-        const hasPending = snapshot.metadata.hasPendingWrites;
-        setSyncStatus(hasPending ? 'syncing' : 'synced');
-
-        const list = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          fromCache: snapshot.metadata.fromCache,
-          hasPendingWrites: doc.metadata.hasPendingWrites
-        })) as Project[];
+      // 策略：以云端数据为准，但保留本地尚未上传的数据
+      // 这里简化处理：直接合并，ID 冲突则云端覆盖本地
+      setProjects(prevLocal => {
+        const cloudIds = new Set(cloudProjects.map(p => p.id));
+        // 保留那些还不在云端的本地数据（syncStatus === 'pending' 或 'error'）
+        const pendingLocal = prevLocal.filter(p => !cloudIds.has(p.id));
         
-        setProjects(list);
-      },
-      (error) => {
-        console.error("Firebase Error (Fallback to cached):", error);
-        // 如果报错（比如没网），通常 Firebase 会自动尝试读缓存
-        // 我们只需标记为离线
-        setSyncStatus('offline');
-      }
-    );
+        const merged = [...pendingLocal, ...cloudProjects];
+        merged.sort((a, b) => b.createdAt - a.createdAt);
+        
+        // 更新 LocalStorage 备份
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));
+        return merged;
+      });
+
+    }, (error) => {
+      console.warn("Cloud sync paused/failed (Permission or Network):", error);
+      setIsCloudConnected(false);
+      // 云端挂了不影响本地，啥都不用做，保持显示本地数据即可
+    });
 
     return () => unsubscribe();
   }, [user, db, appId]);
 
-  // 🟢 创建项目 (极速模式)
+  // 🟢 创建项目 (Local-First 逻辑)
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProjectTitle.trim()) return;
     
-    // 1. 关闭弹窗 (立即！)
-    // 我们不再 await addDoc，让界面瞬间响应
+    // 1. 构造新项目对象 (先标记为 Pending)
+    const newProject: Project = {
+      id: `local-${Date.now()}`, // 临时 ID
+      title: newProjectTitle,
+      description: newProjectDesc || '',
+      progress: 0,
+      createdAt: Date.now(),
+      modules: [
+        { id: 'm1', title: 'Phase 1: Concept', isCompleted: true, timeEstimate: '1h' },
+        { id: 'm2', title: 'Phase 2: Dev', isCompleted: false, timeEstimate: '5h' }
+      ],
+      syncStatus: 'pending' // 🟡 状态：待同步
+    };
+
+    // 2. ⚡️ 极速更新 UI (不等待网络)
+    const updatedList = [newProject, ...projects];
+    setProjects(updatedList);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedList)); // 持久化到本地
+    
+    // 关闭弹窗
     setShowCreateModal(false);
     setNewProjectTitle('');
     setNewProjectDesc('');
-    
-    // 2. 触发后台写入
-    try {
-      await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'projects'), {
-        title: newProjectTitle,
-        description: newProjectDesc || 'No description',
-        progress: 0,
-        createdAt: serverTimestamp(),
-        modules: [
-          { id: 'm1', title: 'Phase 1: Planning', isCompleted: true, timeEstimate: '2h' },
-          { id: 'm2', title: 'Phase 2: Execution', isCompleted: false, timeEstimate: '5h' }
-        ]
-      });
-      // 成功后不需要做任何事，onSnapshot 会处理
-    } catch (error) {
-      console.error("后台写入失败:", error);
-      alert("写入失败，请检查网络连接");
+
+    // 3. ☁️ 后台异步上传
+    if (db && user) {
+      try {
+        const docRef = await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'projects'), {
+          ...newProject,
+          // 移除 UI 专用的字段再上传
+          syncStatus: undefined 
+        });
+        
+        // 上传成功！更新本地状态 ID 为真实云端 ID，状态改为 Synced
+        setProjects(prev => {
+          const newList = prev.map(p => 
+            p.id === newProject.id 
+              ? { ...p, id: docRef.id, syncStatus: 'synced' as const } 
+              : p
+          );
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newList));
+          return newList;
+        });
+
+      } catch (err) {
+        console.error("Upload failed:", err);
+        // 上传失败，标记为 Error，提示用户
+        setProjects(prev => {
+          const newList = prev.map(p => 
+            p.id === newProject.id ? { ...p, syncStatus: 'error' as const } : p
+          );
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newList));
+          return newList;
+        });
+      }
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("确定要删除这个项目吗？")) {
-      // 同样，不 await，直接触发
-      deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'projects', id));
+    if (!confirm("确定删除?")) return;
+
+    // 1. 本地立即删除
+    const updated = projects.filter(p => p.id !== id);
+    setProjects(updated);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+
+    // 2. 云端异步删除
+    if (db && user && !id.startsWith('local-')) {
+      try {
+        await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'projects', id));
+      } catch (e) { console.error("Cloud delete failed", e); }
     }
   };
 
-  const handleLogout = () => signOut(auth);
-
-  // 状态指示器组件
-  const SyncIndicator = () => {
-    if (syncStatus === 'offline') {
-      return <div className="flex items-center gap-2 text-xs font-bold text-slate-400 bg-slate-100 px-3 py-1.5 rounded-full"><WifiOff size={14}/> {t.sync.offline}</div>;
-    }
-    if (syncStatus === 'syncing') {
-      return <div className="flex items-center gap-2 text-xs font-bold text-amber-500 bg-amber-50 px-3 py-1.5 rounded-full"><RefreshCw size={14} className="animate-spin"/> {t.sync.syncing}</div>;
-    }
-    return <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full"><CloudLightning size={14}/> {t.sync.saved}</div>;
-  };
+  const handleLogout = () => signOut(auth!);
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
@@ -205,14 +254,14 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore, aut
           <div className="bg-indigo-600 p-2.5 rounded-xl shadow-lg shadow-indigo-500/20"><Layout size={22} className="text-white" /></div>
           <div>
             <h1 className="font-bold text-lg tracking-tight">Project Nexus</h1>
-            <p className="text-[10px] text-indigo-300 font-medium tracking-wider mt-1 opacity-80">{t.sidebar.workspace}</p>
+            <p className="text-[10px] text-indigo-300 font-medium tracking-wider mt-1 opacity-80">LOCAL FIRST</p>
           </div>
         </div>
 
         <div className="px-5 mb-6">
-           <div className="relative group">
-             <Search className="absolute left-3 top-3 text-slate-500" size={16} />
-             <input type="text" placeholder="Search..." className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:bg-slate-800 text-slate-200" />
+           <div className={`flex items-center gap-2 p-3 rounded-xl text-xs font-bold transition-colors ${isCloudConnected ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}`}>
+              {isCloudConnected ? <CloudLightning size={14} /> : <HardDrive size={14} />}
+              {isCloudConnected ? "Cloud Active" : "Local Mode"}
            </div>
         </div>
 
@@ -245,12 +294,9 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore, aut
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-white relative">
         <header className="h-16 border-b border-slate-100 flex items-center justify-between px-6 bg-white/80 backdrop-blur-md sticky top-0 z-10">
           <h2 className="text-lg font-bold text-slate-800">{t.sidebar.myProjects}</h2>
-          <div className="flex items-center gap-4">
-            <SyncIndicator />
-            <button onClick={() => setShowCreateModal(true)} className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 shadow-lg">
-              <Plus size={16} /> {t.dashboard.newProject}
-            </button>
-          </div>
+          <button onClick={() => setShowCreateModal(true)} className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 shadow-lg">
+            <Plus size={16} /> {t.dashboard.newProject}
+          </button>
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50/30">
@@ -274,14 +320,26 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore, aut
 
                  {/* Project Cards */}
                  {projects.map(project => (
-                   <div key={project.id} className={`bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-indigo-100 transition-all flex flex-col justify-between group relative overflow-hidden ${project.hasPendingWrites ? 'opacity-80' : ''}`}>
+                   <div key={project.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-indigo-100 transition-all flex flex-col justify-between group relative overflow-hidden">
                      
-                     {/* 待同步标记 */}
-                     {project.hasPendingWrites && (
-                       <div className="absolute top-0 right-0 bg-amber-100 text-amber-600 text-[10px] px-2 py-1 rounded-bl-lg font-bold flex items-center gap-1 animate-pulse">
-                         <RefreshCw size={10} className="animate-spin" /> SYNCING
-                       </div>
-                     )}
+                     {/* 🟡 状态徽章 (Sync Status Badge) */}
+                     <div className="absolute top-0 right-0 p-2">
+                       {project.syncStatus === 'pending' && (
+                         <div className="bg-amber-100 text-amber-700 text-[10px] px-2 py-1 rounded-full font-bold flex items-center gap-1">
+                           <HardDrive size={10}/> {t.status.pending}
+                         </div>
+                       )}
+                       {project.syncStatus === 'error' && (
+                         <div className="bg-red-100 text-red-700 text-[10px] px-2 py-1 rounded-full font-bold flex items-center gap-1">
+                           <AlertTriangle size={10}/> {t.status.error}
+                         </div>
+                       )}
+                       {project.syncStatus === 'synced' && (
+                         <div className="bg-emerald-50 text-emerald-600 text-[10px] px-2 py-1 rounded-full font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                           <CloudLightning size={10}/> {t.status.saved}
+                         </div>
+                       )}
+                     </div>
 
                      <div>
                        <div className="flex justify-between items-start mb-4">
@@ -359,53 +417,44 @@ export default function App() {
           try { config = JSON.parse(__firebase_config); } catch (e) {}
         }
 
-        if (!config || !config.apiKey) throw new Error("Missing Config");
-
-        if (!getApps().length) appRef.current = initializeApp(config);
-        else appRef.current = getApp();
-        
-        authRef.current = getAuth(appRef.current);
-        dbRef.current = getFirestore(appRef.current);
-
-        // 🚀 核心关键：开启离线持久化
-        // 这样即使刷新页面，数据也能从 IndexedDB 秒加载
-        try {
-          await enableIndexedDbPersistence(dbRef.current);
-          console.log("🔥 离线持久化已开启：断网也能用，加载如闪电！");
-        } catch (err: any) {
-          if (err.code == 'failed-precondition') {
-             console.warn("⚠️ 多个标签页打开，只能在一个标签页开启离线持久化");
-          } else if (err.code == 'unimplemented') {
-             console.warn("⚠️ 当前浏览器不支持离线持久化");
-          }
+        if (config && config.apiKey) {
+          if (!getApps().length) appRef.current = initializeApp(config);
+          else appRef.current = getApp();
+          authRef.current = getAuth(appRef.current);
+          dbRef.current = getFirestore(appRef.current);
+          if (typeof window !== 'undefined' && window.__app_id) appIdRef.current = window.__app_id;
+          onAuthStateChanged(authRef.current, (u) => setCurrentUser(u));
+        } else {
+          console.warn("No Firebase Config found, running in pure local mode.");
         }
-
-        if (typeof window !== 'undefined' && window.__app_id) {
-          appIdRef.current = window.__app_id;
-        }
-
-        onAuthStateChanged(authRef.current, (u) => setCurrentUser(u));
-        setIsReady(true);
-      } catch (e: any) { console.error(e); }
+      } catch (e: any) { console.error("Firebase init error:", e); }
+      finally { setIsReady(true); }
     };
     init();
   }, []);
 
   const handleLogin = async (username: string) => {
-    if (!authRef.current) return;
     setIsLoggingIn(true);
-    try {
-      const userCredential = await signInAnonymously(authRef.current);
-      await updateProfile(userCredential.user, { displayName: username });
-      setCurrentUser({ ...userCredential.user, displayName: username });
-    } catch (e) { alert("Login Failed"); } finally { setIsLoggingIn(false); }
+    // 尝试 Firebase 登录，如果失败则使用本地模拟登录
+    if (authRef.current) {
+      try {
+        const userCredential = await signInAnonymously(authRef.current);
+        await updateProfile(userCredential.user, { displayName: username });
+        // onAuthStateChanged 会处理状态更新
+      } catch (e) {
+        console.warn("Firebase login failed, falling back to local user");
+        setCurrentUser({ uid: 'local-user', displayName: username } as User);
+      }
+    } else {
+      // 纯本地模式
+      setCurrentUser({ uid: 'local-user', displayName: username } as User);
+    }
+    setIsLoggingIn(false);
   };
 
   if (!isReady) return <div className="min-h-screen flex items-center justify-center bg-[#0F172A]"><Loader2 className="animate-spin text-indigo-500 w-8 h-8" /></div>;
 
-  if (!currentUser) {
-    return <LoginScreen onLogin={handleLogin} lang={loginLang} setLang={setLoginLang} isLoggingIn={isLoggingIn} />;
-  }
-
-  return <MainContent user={currentUser} db={dbRef.current!} auth={authRef.current!} appId={appIdRef.current} />;
+  if (!currentUser) return <LoginScreen onLogin={handleLogin} lang={loginLang} setLang={setLoginLang} isLoggingIn={isLoggingIn} />;
+  
+  return <MainContent user={currentUser} db={dbRef.current} auth={authRef.current} appId={appIdRef.current} />;
 }
