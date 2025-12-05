@@ -1,316 +1,340 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { initializeApp, getApps, getApp, FirebaseApp, FirebaseOptions } from 'firebase/app';
-import { getAuth, onAuthStateChanged, signInAnonymously, Auth, User, signInWithCustomToken } from 'firebase/auth';
-import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, query, serverTimestamp, updateDoc, Firestore } from 'firebase/firestore';
+import React, { useState, useEffect, Component } from 'react';
+import { AlertCircle, CheckCircle, Server, Monitor, ShieldAlert, Terminal } from 'lucide-react';
 
-// ==============================================================================
-// 🟢 关键步骤：请在此处填入您的 Firebase 配置 🟢
-// 只要填入这里，就能彻底解决 "Need to provide options" 报错
-// ==============================================================================
-const MANUAL_CONFIG = {
-  apiKey: "AIzaSyDriBJ3yHf2XnNf5ouXd7S_KZsMu7V4w58",             // 必填，例如: "AIzaSyD..."
-  authDomain: "",         // 选填
-  projectId: "",          // 选填
-  storageBucket: "",      // 选填
-  messagingSenderId: "",  // 选填
-  appId: ""               // 选填
-};
+// 1. 错误边界组件：用于捕获 React 渲染树中的错误，防止整个页面白屏
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
 
-// 全局类型定义，防止 TypeScript 报错
-declare global {
-  interface Window { __firebase_config?: string; __app_id?: string; __initial_auth_token?: string; }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("React ErrorBoundary caught an error:", error, errorInfo);
+    this.setState({ errorInfo });
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 bg-red-50 min-h-screen font-sans text-red-900">
+          <div className="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow-xl border-l-4 border-red-500">
+            <h1 className="text-2xl font-bold flex items-center gap-2 mb-4 text-red-600">
+              <ShieldAlert className="w-8 h-8" />
+              应用崩溃 (White Screen Diagnosed)
+            </h1>
+            <p className="mb-4">
+              React 捕获到了一个渲染错误，这通常是导致"白屏"的原因。
+            </p>
+            
+            <div className="bg-gray-900 text-green-400 p-4 rounded overflow-auto font-mono text-sm mb-4">
+              <p className="font-bold text-red-400">Error: {this.state.error && this.state.error.toString()}</p>
+              <br/>
+              <p className="opacity-75">Stack Trace:</p>
+              <pre className="whitespace-pre-wrap">{this.state.errorInfo && this.state.errorInfo.componentStack}</pre>
+            </div>
+
+            <button 
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
+            >
+              刷新页面重试
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children; 
+  }
 }
 
-// ==============================================================================
-// 🛠️ 内置图标组件 (使用 SVG 替代外部依赖，彻底解决 import 报错)
-// ==============================================================================
-const Icons = {
-  AlertTriangle: (props: any) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
-  ),
-  CheckCircle2: (props: any) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-  ),
-  Loader2: (props: any) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-  ),
-  Plus: (props: any) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-  ),
-  Trash2: (props: any) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
-  ),
-  Wifi: (props: any) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
-  ),
-  Settings: (props: any) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.35a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-  ),
-  Rocket: (props: any) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>
-  ),
-  ShieldCheck: (props: any) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
-  ),
-};
+// 2. 环境检查组件
+const EnvironmentCheck = () => {
+  const [checks, setChecks] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-export default function App() {
-  const [status, setStatus] = useState<'loading' | 'missing-config' | 'ready' | 'error'>('loading');
-  const [debugMsg, setDebugMsg] = useState('');
-  const [user, setUser] = useState<User | null>(null);
-  const [items, setItems] = useState<any[]>([]);
-  const [newItemText, setNewItemText] = useState('');
-
-  // Refs for Firebase instances
-  const appRef = useRef<FirebaseApp | null>(null);
-  const authRef = useRef<Auth | null>(null);
-  const dbRef = useRef<Firestore | null>(null);
-  const appIdRef = useRef<string>('default-app-id');
-
-  // --- 初始化逻辑 ---
   useEffect(() => {
-    const initFirebase = async () => {
+    const runChecks = async () => {
+      const results = [];
+
+      // 检查 1: 基本 JS 执行
+      results.push({ name: 'JavaScript Execution', status: 'pass', msg: 'JS 正在运行' });
+
+      // 检查 2: LocalStorage (常见问题源)
       try {
-        console.log("正在启动安全初始化流程...");
-
-        let foundConfig: FirebaseOptions | null = null;
-        let source = "none";
-
-        // 1. 尝试手动配置
-        if (MANUAL_CONFIG.apiKey && MANUAL_CONFIG.apiKey.length > 5) {
-          foundConfig = MANUAL_CONFIG as FirebaseOptions;
-          source = "manual";
-        } 
-        // 2. 尝试环境注入
-        else if (typeof window !== 'undefined' && window.__firebase_config) {
-          try {
-            foundConfig = JSON.parse(window.__firebase_config);
-            source = "env_window";
-          } catch (e) { console.warn("Window config parse error"); }
-        }
-        // 3. 尝试全局变量
-        else if (typeof __firebase_config !== 'undefined') {
-          // @ts-ignore
-          try { foundConfig = JSON.parse(__firebase_config); source = "env_global"; } catch (e) {}
-        }
-
-        // 4. ⛔️ 关键防御：如果没有配置，拦截启动
-        // 这一步阻止了 "no-options" 错误的发生
-        if (!foundConfig || !foundConfig.apiKey) {
-          console.warn("❌ 未找到有效配置，拦截启动。");
-          setStatus('missing-config'); 
-          return;
-        }
-
-        console.log(`✅ 找到配置 (来源: ${source})，准备初始化...`);
-
-        // 5. 安全初始化
-        if (!getApps().length) {
-          appRef.current = initializeApp(foundConfig);
-        } else {
-          appRef.current = getApp();
-        }
-
-        authRef.current = getAuth(appRef.current);
-        dbRef.current = getFirestore(appRef.current);
-
-        if (typeof window !== 'undefined' && window.__app_id) {
-          appIdRef.current = window.__app_id;
-        }
-
-        // 6. 登录
-        const token = typeof window !== 'undefined' && window.__initial_auth_token
-          ? window.__initial_auth_token
-          : (typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null);
-
-        if (token) {
-          await signInWithCustomToken(authRef.current, token);
-        } else {
-          await signInAnonymously(authRef.current);
-        }
-
-        setStatus('ready');
-
-      } catch (err: any) {
-        console.error("Init Error:", err);
-        setDebugMsg(err.message || "Unknown Error");
-        setStatus('error');
+        localStorage.setItem('test_storage', '1');
+        localStorage.removeItem('test_storage');
+        results.push({ name: 'LocalStorage', status: 'pass', msg: '可用' });
+      } catch (e) {
+        results.push({ name: 'LocalStorage', status: 'warn', msg: '不可用或被禁用 (Security/Privacy settings)' });
       }
+
+      // 检查 3: 视口尺寸
+      results.push({ 
+        name: 'Viewport Size', 
+        status: 'info', 
+        msg: `${window.innerWidth}x${window.innerHeight}` 
+      });
+
+      // 检查 4: User Agent
+      results.push({ 
+        name: 'User Agent', 
+        status: 'info', 
+        msg: navigator.userAgent.substring(0, 50) + '...' 
+      });
+
+      // 检查 5: 网络连接 (简单测试)
+      if (navigator.onLine) {
+        results.push({ name: 'Navigator Online', status: 'pass', msg: '在线' });
+      } else {
+        results.push({ name: 'Navigator Online', status: 'warn', msg: '离线状态' });
+      }
+
+      setChecks(results);
+      setLoading(false);
     };
 
-    initFirebase();
+    runChecks();
   }, []);
 
-  // --- 监听状态 ---
-  useEffect(() => {
-    if (status !== 'ready' || !authRef.current) return;
-    const unsubscribe = onAuthStateChanged(authRef.current, (u) => setUser(u));
-    return () => unsubscribe();
-  }, [status]);
+  return (
+    <div className="space-y-3">
+      {checks.map((check, idx) => (
+        <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded border border-gray-100">
+          <div className="flex items-center gap-2">
+            {check.status === 'pass' && <CheckCircle className="w-4 h-4 text-green-500" />}
+            {check.status === 'warn' && <AlertCircle className="w-4 h-4 text-amber-500" />}
+            {check.status === 'info' && <Monitor className="w-4 h-4 text-blue-500" />}
+            <span className="font-medium text-gray-700">{check.name}</span>
+          </div>
+          <span className={`text-sm ${
+            check.status === 'pass' ? 'text-green-700' : 
+            check.status === 'warn' ? 'text-amber-700' : 'text-gray-500'
+          }`}>
+            {check.msg}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+};
 
-  // --- 监听数据 ---
+// 3. 主应用组件
+const Dashboard = () => {
+  const [consoleLogs, setConsoleLogs] = useState([]);
+
+  // 模拟捕获控制台日志
   useEffect(() => {
-    if (!user || !dbRef.current) return;
-    // 简单查询，不使用 orderBy 防止索引报错
-    const q = query(collection(dbRef.current, 'artifacts', appIdRef.current, 'users', user.uid, 'todos'));
+    const originalLog = console.log;
+    const originalError = console.error;
+
+    console.log = (...args) => {
+      setConsoleLogs(prev => [...prev.slice(-4), `LOG: ${args.join(' ')}`]);
+      originalLog(...args);
+    };
     
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      // 内存排序
-      list.sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-      setItems(list);
-    }, (err) => console.error("Firestore Error:", err));
+    console.error = (...args) => {
+      setConsoleLogs(prev => [...prev.slice(-4), `ERR: ${args.join(' ')}`]);
+      originalError(...args);
+    };
 
-    return () => unsubscribe();
-  }, [user]);
+    console.log("应用组件已挂载 (Component Mounted)");
 
-  // --- 交互操作 ---
-  const handleAddItem = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newItemText.trim() || !user || !dbRef.current) return;
-    try {
-      await addDoc(collection(dbRef.current, 'artifacts', appIdRef.current, 'users', user.uid, 'todos'), {
-        text: newItemText, completed: false, createdAt: serverTimestamp()
-      });
-      setNewItemText('');
-    } catch (err) { alert("写入失败"); }
+    return () => {
+      console.log = originalLog;
+      console.error = originalError;
+    };
+  }, []);
+
+  const throwError = () => {
+    // 这是一个用于测试错误边界的函数
+    throw new Error("这是一个人为触发的测试错误！");
   };
 
-  const toggle = async (id: string, v: boolean) => {
-    if (!dbRef.current) return;
-    updateDoc(doc(dbRef.current, 'artifacts', appIdRef.current, 'users', user.uid, 'todos', id), { completed: !v });
-  };
-
-  const del = async (id: string) => {
-    if (!dbRef.current) return;
-    deleteDoc(doc(dbRef.current, 'artifacts', appIdRef.current, 'users', user.uid, 'todos', id));
-  };
-
-  // ================= 界面渲染 =================
-
-  // 状态 1: 缺少配置 (黄色警告页)
-  if (status === 'missing-config') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6 font-sans text-slate-800">
-        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-lg w-full border-t-4 border-amber-400">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="bg-amber-100 p-3 rounded-full">
-              <Icons.Settings className="text-amber-600 w-8 h-8" />
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 p-4 md:p-8 font-sans">
+      <div className="max-w-4xl mx-auto space-y-6">
+        
+        {/* Header */}
+        <div className="bg-white rounded-xl shadow-sm p-6 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-green-100 text-green-600 rounded-lg">
+              <Server className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">需要配置</h1>
-              <p className="text-amber-600 font-medium">应用已拦截启动</p>
+              <h1 className="text-xl font-bold text-gray-800">React 渲染成功</h1>
+              <p className="text-gray-500 text-sm">如果看到了这个页面，说明服务器部署基本正常。</p>
             </div>
           </div>
-          <div className="space-y-4 text-sm text-slate-600">
-            <p>
-              我们已拦截 <code>no-options</code> 错误，防止了白屏。请在代码中填写您的配置。
-            </p>
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <p className="font-bold mb-2">修复步骤：</p>
-              <ol className="list-decimal pl-5 space-y-2">
-                <li>如果项目中有 <code>firebase.js</code> 或 <code>App.jsx</code>，请删除它们。</li>
-                <li>在当前代码顶部找到 <code>MANUAL_CONFIG</code>。</li>
-                <li>填入 <code>apiKey</code> 等信息。</li>
-                <li>点击保存。</li>
-              </ol>
-            </div>
+          <div className="hidden md:block px-3 py-1 bg-green-50 text-green-700 text-xs font-bold uppercase tracking-wide rounded-full">
+            Status: Online
           </div>
         </div>
-      </div>
-    );
-  }
 
-  // 状态 2: 错误
-  if (status === 'error') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-red-50 p-6 font-sans">
-        <div className="bg-white p-6 rounded-xl shadow-lg max-w-md w-full text-center">
-          <Icons.AlertTriangle className="text-red-500 w-12 h-12 mx-auto mb-4" />
-          <h2 className="text-lg font-bold text-slate-800">发生错误</h2>
-          <code className="block bg-slate-100 p-2 mt-2 rounded text-xs text-red-600 break-all text-left">{debugMsg}</code>
-          <button onClick={() => window.location.reload()} className="mt-4 w-full py-2 bg-red-600 text-white rounded-lg">重试</button>
-        </div>
-      </div>
-    );
-  }
-
-  // 状态 3: 加载中
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 font-sans">
-        <Icons.Loader2 className="animate-spin text-blue-600 w-10 h-10 mb-4" />
-        <p className="text-slate-500 font-medium">正在安全连接...</p>
-      </div>
-    );
-  }
-
-  // 状态 4: 正常运行
-  return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-800">
-      <div className="max-w-2xl mx-auto">
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2 text-slate-900">
-              <Icons.Rocket className="text-blue-600" />
-              Project Nexus
-            </h1>
-            <p className="text-slate-500 text-sm mt-1">诊断模式 (Safe Mode)</p>
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Environment Checks */}
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <Monitor className="w-5 h-5 text-blue-500" />
+              环境诊断
+            </h2>
+            <EnvironmentCheck />
           </div>
-          <div className="mt-4 sm:mt-0 flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-full text-sm font-medium border border-green-100">
-            <Icons.Wifi size={18} />
-            {user ? '系统在线' : '连接中...'}
-          </div>
-        </header>
 
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
-          <form onSubmit={handleAddItem} className="p-6 border-b border-slate-100 flex gap-3 bg-slate-50/50">
-            <input 
-              value={newItemText} 
-              onChange={e => setNewItemText(e.target.value)}
-              placeholder={user ? "输入测试数据..." : "等待连接..."}
-              className="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
-              disabled={!user}
-            />
-            <button disabled={!newItemText.trim() || !user} className="bg-blue-600 text-white px-6 rounded-xl font-medium flex items-center justify-center">
-              <Icons.Plus size={24} />
-            </button>
-          </form>
-
-          <div className="min-h-[300px]">
-            {items.length === 0 ? (
-              <div className="h-[300px] flex flex-col items-center justify-center text-slate-400">
-                <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-                  <Icons.ShieldCheck size={40} className="text-slate-300" />
-                </div>
-                <p className="font-medium text-slate-500">连接正常</p>
-                <p className="text-xs mt-2 text-slate-400">暂无数据</p>
-              </div>
-            ) : (
-              <ul className="divide-y divide-slate-100">
-                {items.map(item => (
-                  <li key={item.id} className="group flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors">
-                    <button onClick={() => toggle(item.id, item.completed)} className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${item.completed ? 'bg-green-500 border-green-500 text-white' : 'border-slate-300 hover:border-blue-400 text-transparent'}`}>
-                      <Icons.CheckCircle2 size={14} strokeWidth={3} />
-                    </button>
-                    <span className={`flex-1 text-base ${item.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
-                      {item.text}
-                    </span>
-                    <button onClick={() => del(item.id)} className="text-slate-300 hover:text-red-500 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all">
-                      <Icons.Trash2 size={20} />
-                    </button>
-                  </li>
+          {/* Console Output & Actions */}
+          <div className="space-y-6">
+            <div className="bg-gray-900 rounded-xl shadow-sm p-6 text-gray-300 font-mono text-sm">
+              <h2 className="text-gray-100 font-bold mb-3 flex items-center gap-2">
+                <Terminal className="w-4 h-4" />
+                Live Console Output
+              </h2>
+              <div className="space-y-1 h-32 overflow-y-auto">
+                {consoleLogs.length === 0 && <span className="opacity-50 italic">Waiting for logs...</span>}
+                {consoleLogs.map((log, i) => (
+                  <div key={i} className={`border-l-2 pl-2 ${log.startsWith('ERR') ? 'border-red-500 text-red-400' : 'border-green-500 text-green-400'}`}>
+                    {log}
+                  </div>
                 ))}
-              </ul>
-            )}
-          </div>
-          {user && (
-            <div className="bg-slate-50 border-t border-slate-100 p-3 text-center text-xs text-slate-400 font-mono">
-              USER ID: {user.uid}
+              </div>
             </div>
-          )}
+
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <h2 className="text-lg font-bold text-gray-800 mb-2">测试错误边界</h2>
+              <p className="text-gray-500 text-sm mb-4">
+                点击下方按钮将故意抛出一个 JavaScript 错误。如果 ErrorBoundary 工作正常，你应该看到红色的错误提示卡片，而不是白屏。
+              </p>
+              <button 
+                onClick={() => setShouldThrow(true)} 
+                className="w-full py-2 bg-red-50 text-red-600 border border-red-200 rounded font-medium hover:bg-red-100 transition"
+              >
+                触发测试错误 (Trigger Error)
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+// 用于触发错误的辅助组件
+const BuggyCounter = () => {
+  throw new Error("I crashed!");
+  return <h1>这行代码永远不会显示</h1>;
+};
+
+// 主 App 入口
+export default function App() {
+  const [shouldThrow, setShouldThrow] = useState(false);
+
+  // 在这里定义状态提升，以便传递给 Dashboard
+  // 为了演示简单，我们在 Dashboard 内部直接处理了逻辑
+  // 实际上 Dashboard 是我们的主要内容
+
+  return (
+    <ErrorBoundary>
+      {shouldThrow ? <BuggyCounter /> : (
+        <DashboardWrapper onThrow={() => setShouldThrow(true)} />
+      )}
+    </ErrorBoundary>
+  );
+}
+
+// 包装器，用于接收 onThrow props
+const DashboardWrapper = ({ onThrow }) => {
+  // 重新实现 Dashboard 的一部分逻辑以连接 onThrow
+  // 为了保持单文件简洁，我将上面 Dashboard 的 "触发测试错误" 按钮逻辑稍微修改一下
+  // 实际上上面的 Dashboard 组件没有接收 props。
+  // 我们来做一个即兴修改：
+
+  const [consoleLogs, setConsoleLogs] = useState([]);
+
+  useEffect(() => {
+    const originalLog = console.log;
+    const originalError = console.error;
+    
+    // 捕获日志用于显示
+    const logHandler = (type, args) => {
+        setConsoleLogs(prev => [...prev.slice(-4), `${type}: ${args.join(' ')}`]);
+    };
+
+    console.log = (...args) => { logHandler('LOG', args); originalLog(...args); };
+    console.error = (...args) => { logHandler('ERR', args); originalError(...args); };
+
+    console.log("System check init...");
+
+    return () => {
+      console.log = originalLog;
+      console.error = originalError;
+    };
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-slate-100 p-4 md:p-8 font-sans text-slate-800">
+      <div className="max-w-4xl mx-auto space-y-6">
+         <div className="bg-white rounded-xl shadow-sm p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-emerald-100 text-emerald-600 rounded-lg">
+              <Server size={28} />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-slate-900">服务器渲染成功</h1>
+              <p className="text-slate-500 text-sm">白屏问题已解决，基础 React 环境运行正常。</p>
+            </div>
+          </div>
+          <div className="px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold uppercase tracking-wide rounded-full border border-emerald-100">
+            System Operational
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+            <div className="space-y-6">
+                <div className="bg-white rounded-xl shadow-sm p-6">
+                    <h3 className="font-bold flex items-center gap-2 mb-4">
+                        <Monitor className="text-blue-500" size={20}/>
+                        环境检测
+                    </h3>
+                    <EnvironmentCheck />
+                </div>
+            </div>
+
+            <div className="space-y-6">
+                <div className="bg-slate-900 rounded-xl shadow-sm p-6 text-slate-300 font-mono text-xs md:text-sm">
+                    <h3 className="text-slate-100 font-bold mb-3 flex items-center gap-2">
+                        <Terminal size={16} />
+                        Console Logs
+                    </h3>
+                    <div className="space-y-1 h-32 overflow-y-auto">
+                        {consoleLogs.length === 0 && <span className="opacity-50 italic">-- 等待日志 --</span>}
+                        {consoleLogs.map((log, i) => (
+                        <div key={i} className={`truncate ${log.startsWith('ERR') ? 'text-rose-400' : 'text-emerald-400'}`}>
+                            {log}
+                        </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-rose-500">
+                    <h3 className="font-bold text-slate-900 mb-2">测试崩溃恢复</h3>
+                    <p className="text-slate-500 text-sm mb-4">
+                        点击按钮将抛出一个测试错误。如果没有出现"白屏"而是显示了红色的错误报告，说明 ErrorBoundary 已生效。
+                    </p>
+                    <button 
+                        onClick={onThrow}
+                        className="w-full py-2.5 bg-rose-50 text-rose-700 font-medium rounded hover:bg-rose-100 transition-colors flex items-center justify-center gap-2"
+                    >
+                        <ShieldAlert size={18} />
+                        触发测试错误
+                    </button>
+                </div>
+            </div>
         </div>
       </div>
     </div>
   );
-}
+};
