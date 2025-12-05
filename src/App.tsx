@@ -6,14 +6,14 @@ import {
   Layout, Plus, Search, Cloud, Settings, LogOut, 
   CreditCard, Loader2, Sparkles, Folder, 
   Bell, Command, ChevronRight, MoreHorizontal,
-  Calendar, CheckCircle2, Circle, ArrowLeft, BrainCircuit
+  Calendar, CheckCircle2, Circle, ArrowLeft, BrainCircuit,
+  Workflow, List, Network
 } from 'lucide-react';
 
 // ==============================================================================
 // 1. 🟢 配置区域 (引擎核心)
 // ==============================================================================
 const MANUAL_CONFIG = {
-  // ⚠️ 确保填入你的 API Key
   apiKey: "AIzaSyDriBJ3yHf2XnNf5ouXd7S_KZsMu7V4w58",
   authDomain: "", projectId: "", storageBucket: "", messagingSenderId: "", appId: "" 
 };
@@ -23,26 +23,33 @@ declare global {
 }
 
 // ==============================================================================
-// 2. 🧩 积木式数据结构模拟 (为了演示功能)
+// 2. 🧩 升级版数据结构 (支持大模块套小任务)
 // ==============================================================================
-type Project = {
+type SubTask = {
   id: string;
   title: string;
-  description: string;
-  progress: number;
-  updatedAt: string;
-  members: string[]; // 模拟团队成员头像颜色
-  modules: Module[]; // 积木模块
+  isCompleted: boolean;
 };
 
 type Module = {
   id: string;
   title: string;
   isCompleted: boolean;
-  timeEstimate: string; // 碎片化时间估算
+  timeEstimate: string;
+  subTasks?: SubTask[]; // 新增：子任务层级
 };
 
-// 模拟数据
+type Project = {
+  id: string;
+  title: string;
+  description: string;
+  progress: number;
+  updatedAt: string;
+  members: string[];
+  modules: Module[];
+};
+
+// 模拟数据：增加层级深度
 const DEMO_PROJECTS: Project[] = [
   {
     id: '1',
@@ -52,10 +59,29 @@ const DEMO_PROJECTS: Project[] = [
     updatedAt: '2小时前',
     members: ['bg-blue-500', 'bg-pink-500', 'bg-yellow-500'],
     modules: [
-      { id: 'm1', title: '用户登录与注册 UI', isCompleted: true, timeEstimate: '2h' },
-      { id: 'm2', title: 'Stripe 支付接口对接', isCompleted: true, timeEstimate: '4h' },
-      { id: 'm3', title: '商品详情页布局', isCompleted: false, timeEstimate: '3h' },
-      { id: 'm4', title: 'AR 摄像头权限配置', isCompleted: false, timeEstimate: '1h' },
+      { 
+        id: 'm1', title: '用户系统 (User System)', isCompleted: true, timeEstimate: '12h',
+        subTasks: [
+          { id: 't1-1', title: '登录/注册 UI', isCompleted: true },
+          { id: 't1-2', title: 'JWT 鉴权逻辑', isCompleted: true },
+          { id: 't1-3', title: '忘记密码流程', isCompleted: false },
+        ]
+      },
+      { 
+        id: 'm2', title: '支付模块 (Payment)', isCompleted: true, timeEstimate: '8h',
+        subTasks: [
+          { id: 't2-1', title: 'Stripe SDK 集成', isCompleted: true },
+          { id: 't2-2', title: '订单状态回调', isCompleted: true },
+        ]
+      },
+      { 
+        id: 'm3', title: 'AR 试穿功能 (Core Feature)', isCompleted: false, timeEstimate: '20h',
+        subTasks: [
+          { id: 't3-1', title: '摄像头权限获取', isCompleted: false },
+          { id: 't3-2', title: '3D 模型加载器', isCompleted: false },
+          { id: 't3-3', title: '手势交互逻辑', isCompleted: false },
+        ]
+      },
     ]
   },
   {
@@ -66,8 +92,17 @@ const DEMO_PROJECTS: Project[] = [
     updatedAt: '1天前',
     members: ['bg-green-500', 'bg-purple-500'],
     modules: [
-      { id: 'crm1', title: '数据库架构设计', isCompleted: true, timeEstimate: '5h' },
-      { id: 'crm2', title: '仪表盘图表组件', isCompleted: false, timeEstimate: '3h' },
+      { 
+        id: 'crm1', title: '数据库架构', isCompleted: true, timeEstimate: '5h',
+        subTasks: [
+          { id: 'c1-1', title: 'ER图设计', isCompleted: true },
+          { id: 'c1-2', title: '建表脚本', isCompleted: true }
+        ]
+      },
+      { 
+        id: 'crm2', title: '前端仪表盘', isCompleted: false, timeEstimate: '3h',
+        subTasks: []
+      },
     ]
   }
 ];
@@ -134,29 +169,95 @@ const MenuItem = ({ icon, label, active, count, onClick }: any) => (
   </div>
 );
 
-// --- 核心：主内容区域 (支持视图切换) ---
+// --- 全新组件：蓝图视图 (Mind Map / Flowchart) ---
+const BlueprintView = ({ project }: { project: Project }) => {
+  return (
+    <div className="relative w-full h-full overflow-auto bg-slate-50/50 p-10 flex items-center justify-start min-h-[600px]">
+      <div className="flex gap-16 items-center">
+        
+        {/* Level 0: 项目根节点 */}
+        <div className="relative z-10">
+          <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl shadow-indigo-200 border-4 border-indigo-100 w-64 text-center relative group">
+             <div className="absolute -top-3 -right-3 bg-indigo-500 rounded-full p-2 shadow-lg"><Layout size={20}/></div>
+             <h3 className="font-bold text-lg mb-1">{project.title}</h3>
+             <div className="text-xs text-slate-400">总进度 {project.progress}%</div>
+             {/* 连接点 */}
+             <div className="absolute top-1/2 -right-3 w-3 h-3 bg-indigo-500 rounded-full" />
+          </div>
+        </div>
+
+        {/* 连线层 (SVG) */}
+        {/* 这里简化处理：在 React 中动态计算连线比较复杂，为了演示，我们用 CSS 伪元素和 Flex 布局模拟树状结构 */}
+        
+        {/* Level 1: 模块层 */}
+        <div className="flex flex-col gap-8 relative">
+           {/* 垂直连接线 (简化版) */}
+           <div className="absolute left-[-32px] top-10 bottom-10 w-0.5 bg-indigo-200 rounded-full"></div>
+
+           {project.modules.map((module) => (
+             <div key={module.id} className="relative flex items-center">
+               {/* 水平连接线 */}
+               <div className="w-16 h-0.5 bg-indigo-200 absolute -left-16 top-1/2"></div>
+               <div className="absolute -left-16 top-1/2 w-2 h-2 bg-indigo-500 rounded-full transform -translate-x-1/2 -translate-y-1/2"></div>
+
+               {/* 模块卡片 */}
+               <div className={`w-64 p-4 rounded-xl border-2 transition-all group hover:scale-105 duration-200 bg-white ${module.isCompleted ? 'border-green-400/50 shadow-green-100' : 'border-slate-200 shadow-sm hover:border-indigo-400 hover:shadow-md'}`}>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${module.isCompleted ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                      {module.isCompleted ? 'DONE' : 'IN PROGRESS'}
+                    </span>
+                    <MoreHorizontal size={16} className="text-slate-300"/>
+                  </div>
+                  <h4 className="font-bold text-slate-800">{module.title}</h4>
+                  <p className="text-xs text-slate-400 mt-1">耗时: {module.timeEstimate}</p>
+               </div>
+
+               {/* Level 2: 子任务 (如果展开) */}
+               {module.subTasks && module.subTasks.length > 0 && (
+                 <div className="ml-12 flex flex-col gap-3 border-l-2 border-slate-200 pl-6 py-2 relative">
+                   {module.subTasks.map(task => (
+                     <div key={task.id} className="flex items-center gap-3 relative">
+                       {/* 拐角线 */}
+                       <div className="absolute -left-6 top-1/2 w-4 h-0.5 bg-slate-200"></div>
+                       
+                       <div className={`w-3 h-3 rounded-full border ${task.isCompleted ? 'bg-green-500 border-green-500' : 'bg-white border-slate-300'}`}></div>
+                       <span className={`text-sm ${task.isCompleted ? 'text-slate-400 line-through' : 'text-slate-600'}`}>{task.title}</span>
+                     </div>
+                   ))}
+                 </div>
+               )}
+             </div>
+           ))}
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+// --- 主内容区域 ---
 const MainContent = ({ user }: { user: User | null }) => {
-  const [view, setView] = useState<'dashboard' | 'detail'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'detail' | 'blueprint'>('dashboard');
+  const [projectMode, setProjectMode] = useState<'list' | 'blueprint'>('list'); // 项目详情内的视图切换
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [showAIModal, setShowAIModal] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // 打开项目详情
+  // 打开项目
   const openProject = (p: Project) => {
     setActiveProject(p);
     setView('detail');
+    setProjectMode('list'); // 默认进列表，可切换蓝图
   };
 
-  // 模拟 AI 生成
   const handleAIGenerate = () => {
     if (!aiPrompt.trim()) return;
     setIsGenerating(true);
     setTimeout(() => {
       setIsGenerating(false);
       setShowAIModal(false);
-      alert("AI 已为你生成项目结构！(模拟成功)");
-      // 这里未来会连接真实的 Gemini API
+      alert("AI 已生成！请查看新添加的模块结构。");
     }, 2000);
   };
 
@@ -168,16 +269,40 @@ const MainContent = ({ user }: { user: User | null }) => {
         {/* 顶部栏 */}
         <header className="h-16 border-b border-slate-100 flex items-center justify-between px-6 bg-white/80 backdrop-blur-md sticky top-0 z-10">
           <div className="flex items-center gap-4">
-            {view === 'detail' && (
+            {view !== 'dashboard' && (
               <button onClick={() => setView('dashboard')} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors">
                 <ArrowLeft size={20} />
               </button>
             )}
-             <h2 className="text-lg font-bold text-slate-800">{view === 'dashboard' ? '概览' : activeProject?.title}</h2>
-             <span className="text-slate-300 text-sm">/</span>
-             <span className="text-slate-500 text-sm">{view === 'dashboard' ? '我的项目库' : '任务积木板'}</span>
+             <div className="flex flex-col">
+                <h2 className="text-lg font-bold text-slate-800 leading-none">
+                  {view === 'dashboard' ? '概览' : activeProject?.title}
+                </h2>
+                <div className="flex items-center gap-2 mt-1">
+                   <span className="text-xs text-slate-400">{view === 'dashboard' ? '我的项目库' : '项目详情'}</span>
+                   {view !== 'dashboard' && <span className="text-[10px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-bold">DEV</span>}
+                </div>
+             </div>
           </div>
           <div className="flex items-center gap-3">
+             {/* 项目内视图切换器 */}
+             {view !== 'dashboard' && (
+               <div className="flex bg-slate-100 p-1 rounded-lg mr-4">
+                 <button 
+                   onClick={() => setProjectMode('list')}
+                   className={`p-1.5 rounded-md transition-all flex items-center gap-2 text-xs font-bold ${projectMode === 'list' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                 >
+                   <List size={14} /> 列表
+                 </button>
+                 <button 
+                   onClick={() => setProjectMode('blueprint')}
+                   className={`p-1.5 rounded-md transition-all flex items-center gap-2 text-xs font-bold ${projectMode === 'blueprint' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                 >
+                   <Network size={14} /> 蓝图 (Flow)
+                 </button>
+               </div>
+             )}
+             
              <button className="w-8 h-8 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-indigo-600 transition-colors"><Bell size={16} /></button>
              <button onClick={() => setShowAIModal(true)} className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 shadow-lg">
                 <Plus size={16} /> 新建项目
@@ -186,46 +311,28 @@ const MainContent = ({ user }: { user: User | null }) => {
         </header>
 
         {/* 内容画布 */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50/30">
-          <div className="max-w-6xl mx-auto">
-            
-            {/* 视图 1: 仪表盘 (Dashboard) */}
+        <div className="flex-1 overflow-y-auto bg-slate-50/30">
+          
+            {/* 视图 1: 仪表盘 */}
             {view === 'dashboard' && (
-              <>
+              <div className="p-6 md:p-8 max-w-6xl mx-auto">
                 <div className="flex justify-between items-end mb-8">
                   <div>
                     <h1 className="text-3xl font-bold text-slate-900 mb-2">欢迎回来, Leader</h1>
-                    <p className="text-slate-500">你有 2 个正在进行的项目，共计 12 个待办模块。</p>
-                  </div>
-                  <div className="text-right hidden md:block">
-                     <p className="text-sm text-slate-400">本周效率</p>
-                     <p className="text-2xl font-bold text-emerald-500">+24%</p>
+                    <p className="text-slate-500">你有 2 个正在进行的项目，点击即可查看详情。</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {/* AI 快速入口卡片 */}
-                  <div 
-                    onClick={() => setShowAIModal(true)}
-                    className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white cursor-pointer hover:shadow-xl hover:shadow-indigo-200 transition-all group flex flex-col justify-between"
-                  >
+                  <div onClick={() => setShowAIModal(true)} className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white cursor-pointer hover:shadow-xl transition-all group flex flex-col justify-between">
                     <div>
-                      <div className="bg-white/20 w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <Sparkles size={24} />
-                      </div>
+                      <div className="bg-white/20 w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><Sparkles size={24} /></div>
                       <h3 className="font-bold text-xl mb-2">AI 创意生成器</h3>
-                      <p className="text-indigo-100 text-sm opacity-90 leading-relaxed">
-                        不知道如何开始？输入你的想法，AI 帮你把大项目拆解成小积木。
-                      </p>
-                    </div>
-                    <div className="mt-6 flex items-center gap-2 text-sm font-medium bg-white/10 w-fit px-3 py-1.5 rounded-lg backdrop-blur-sm">
-                      <BrainCircuit size={16} /> 点击尝试
+                      <p className="text-indigo-100 text-sm opacity-90">不知道如何开始？输入你的想法，AI 帮你生成蓝图。</p>
                     </div>
                   </div>
-
-                  {/* 渲染项目列表 */}
                   {DEMO_PROJECTS.map(project => (
-                    <div key={project.id} onClick={() => openProject(project)} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-indigo-100 transition-all cursor-pointer group flex flex-col justify-between">
+                    <div key={project.id} onClick={() => openProject(project)} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:border-indigo-100 transition-all cursor-pointer group flex flex-col justify-between hover:shadow-md">
                       <div>
                         <div className="flex justify-between items-start mb-4">
                           <span className="bg-orange-50 text-orange-600 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider">进行中</span>
@@ -234,112 +341,95 @@ const MainContent = ({ user }: { user: User | null }) => {
                         <h3 className="font-bold text-slate-800 text-lg mb-2 group-hover:text-indigo-600 transition-colors">{project.title}</h3>
                         <p className="text-slate-500 text-sm line-clamp-2 mb-6">{project.description}</p>
                       </div>
-                      
-                      <div>
-                        <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
-                          <span>进度 {project.progress}%</span>
-                          <span>{project.updatedAt}</span>
-                        </div>
-                        <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden mb-4">
-                          <div className="h-full bg-indigo-500 rounded-full transition-all duration-500" style={{ width: `${project.progress}%` }}></div>
-                        </div>
-                        <div className="flex items-center -space-x-2">
-                          {project.members.map((color, idx) => (
-                            <div key={idx} className={`w-8 h-8 rounded-full border-2 border-white ${color} flex items-center justify-center text-white text-xs shadow-sm`}>
-                              {idx + 1}
-                            </div>
-                          ))}
-                          <div className="w-8 h-8 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-slate-400 text-xs hover:bg-slate-200 cursor-pointer">
-                            <Plus size={14} />
-                          </div>
-                        </div>
+                      <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mb-4">
+                          <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${project.progress}%` }}></div>
                       </div>
                     </div>
                   ))}
                 </div>
-              </>
-            )}
-
-            {/* 视图 2: 项目详情 (积木拆解模式) */}
-            {view === 'detail' && activeProject && (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="flex flex-col md:flex-row gap-8">
-                  {/* 左侧：积木任务列表 */}
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-6">
-                      <h3 className="font-bold text-slate-800 text-xl flex items-center gap-2">
-                        <Folder className="text-indigo-500" size={24}/> 
-                        任务积木 
-                        <span className="bg-slate-100 text-slate-500 text-xs px-2 py-1 rounded-full">{activeProject.modules.length}</span>
-                      </h3>
-                      <button className="text-indigo-600 text-sm font-medium hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
-                        <Plus size={16} /> 添加积木
-                      </button>
-                    </div>
-
-                    <div className="space-y-3">
-                      {activeProject.modules.map(module => (
-                        <div key={module.id} className={`p-4 rounded-xl border transition-all flex items-center gap-4 ${module.isCompleted ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-white border-slate-200 shadow-sm hover:border-indigo-300'}`}>
-                          <button className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${module.isCompleted ? 'bg-green-500 border-green-500 text-white' : 'border-slate-300 hover:border-indigo-400 text-transparent'}`}>
-                             <CheckCircle2 size={14} strokeWidth={3} />
-                          </button>
-                          <div className="flex-1">
-                            <h4 className={`font-medium ${module.isCompleted ? 'text-slate-500 line-through' : 'text-slate-800'}`}>{module.title}</h4>
-                            <div className="flex items-center gap-4 mt-1">
-                              <span className="text-xs text-slate-400 flex items-center gap-1"><Calendar size={12}/> 预计耗时: {module.timeEstimate}</span>
-                              <span className="text-xs text-slate-400 flex items-center gap-1"><Circle size={8} fill={module.isCompleted ? '#22c55e' : '#f59e0b'} className={module.isCompleted ? 'text-green-500' : 'text-amber-500'} /> {module.isCompleted ? '已完成' : '待处理'}</span>
-                            </div>
-                          </div>
-                          {!module.isCompleted && (
-                            <button className="text-slate-400 hover:text-indigo-600 p-2"><ChevronRight size={20} /></button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 右侧：项目概览与团队 */}
-                  <div className="w-full md:w-80 space-y-6">
-                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-                      <h4 className="font-bold text-slate-700 mb-4 text-sm uppercase tracking-wider">项目进度</h4>
-                      <div className="flex items-center justify-center relative w-32 h-32 mx-auto mb-4">
-                        <svg className="transform -rotate-90 w-32 h-32">
-                          <circle cx="64" cy="64" r="60" stroke="#f1f5f9" strokeWidth="8" fill="transparent" />
-                          <circle cx="64" cy="64" r="60" stroke="#6366f1" strokeWidth="8" fill="transparent" strokeDasharray={377} strokeDashoffset={377 - (377 * activeProject.progress) / 100} strokeLinecap="round" />
-                        </svg>
-                        <span className="absolute text-2xl font-bold text-slate-800">{activeProject.progress}%</span>
-                      </div>
-                      <p className="text-center text-xs text-slate-500">已完成 2/4 个关键里程碑</p>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-                      <div className="flex justify-between items-center mb-4">
-                        <h4 className="font-bold text-slate-700 text-sm uppercase tracking-wider">协作团队</h4>
-                        <button className="text-xs text-indigo-600 font-bold hover:underline">邀请</button>
-                      </div>
-                      <div className="space-y-3">
-                        {['产品经理', 'UI 设计师', '前端开发'].map((role, i) => (
-                          <div key={i} className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-full ${activeProject.members[i] || 'bg-slate-300'} flex items-center justify-center text-white text-xs font-bold`}>
-                              {role[0]}
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-slate-700">Member {i+1}</p>
-                              <p className="text-xs text-slate-400">{role}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </div>
             )}
 
-          </div>
+            {/* 视图 2: 项目详情 */}
+            {view === 'detail' && activeProject && (
+              <div className="h-full flex flex-col">
+                
+                {/* 模式 A: 列表模式 (List Mode) */}
+                {projectMode === 'list' && (
+                   <div className="p-6 md:p-8 max-w-6xl mx-auto w-full animate-in fade-in zoom-in-95 duration-300">
+                     <div className="flex flex-col md:flex-row gap-8">
+                       {/* 积木任务列表 */}
+                       <div className="flex-1">
+                         <div className="flex items-center justify-between mb-6">
+                           <h3 className="font-bold text-slate-800 text-xl flex items-center gap-2">
+                             <Folder className="text-indigo-500" size={24}/> 任务积木 
+                           </h3>
+                           <button className="text-indigo-600 text-sm font-medium bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors">
+                             + 添加模块
+                           </button>
+                         </div>
+
+                         <div className="space-y-4">
+                           {activeProject.modules.map(module => (
+                             <div key={module.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                               <div className="p-4 flex items-center justify-between bg-slate-50/50 border-b border-slate-100">
+                                 <div className="flex items-center gap-3">
+                                   <div className={`p-1.5 rounded-lg ${module.isCompleted ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'}`}>
+                                      {module.isCompleted ? <CheckCircle2 size={16}/> : <Loader2 size={16} className={module.isCompleted ? '' : 'animate-spin-slow'}/>}
+                                   </div>
+                                   <h4 className="font-bold text-slate-800">{module.title}</h4>
+                                 </div>
+                                 <span className="text-xs text-slate-400 font-mono">{module.timeEstimate}</span>
+                               </div>
+                               <div className="p-2">
+                                 {module.subTasks && module.subTasks.map(task => (
+                                   <div key={task.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors group">
+                                      <div className={`w-4 h-4 rounded border flex items-center justify-center ${task.isCompleted ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300'}`}>
+                                        {task.isCompleted && <CheckCircle2 size={12} className="text-white"/>}
+                                      </div>
+                                      <span className={`text-sm ${task.isCompleted ? 'text-slate-400 line-through' : 'text-slate-600'}`}>{task.title}</span>
+                                   </div>
+                                 ))}
+                                 {(!module.subTasks || module.subTasks.length === 0) && (
+                                   <div className="text-center py-4 text-xs text-slate-400 italic">暂无子任务</div>
+                                 )}
+                               </div>
+                             </div>
+                           ))}
+                         </div>
+                       </div>
+
+                       {/* 右侧概览 */}
+                       <div className="w-full md:w-80">
+                         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm sticky top-6">
+                           <h4 className="font-bold text-slate-700 mb-4 text-sm uppercase tracking-wider">总体进度</h4>
+                           <div className="w-full bg-slate-100 rounded-full h-4 mb-2 overflow-hidden">
+                             <div className="bg-indigo-500 h-full transition-all duration-1000" style={{width: `${activeProject.progress}%`}}></div>
+                           </div>
+                           <div className="flex justify-between text-xs text-slate-500">
+                             <span>0%</span>
+                             <span className="font-bold text-indigo-600">{activeProject.progress}%</span>
+                             <span>100%</span>
+                           </div>
+                         </div>
+                       </div>
+                     </div>
+                   </div>
+                )}
+
+                {/* 模式 B: 蓝图模式 (Blueprint/Flowchart) */}
+                {projectMode === 'blueprint' && (
+                  <div className="flex-1 animate-in fade-in duration-500">
+                    <BlueprintView project={activeProject} />
+                  </div>
+                )}
+
+              </div>
+            )}
+
         </div>
 
-        {/* AI 生成模态框 */}
+        {/* AI Modal */}
         {showAIModal && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
@@ -352,18 +442,14 @@ const MainContent = ({ user }: { user: User | null }) => {
                 <textarea 
                   value={aiPrompt}
                   onChange={e => setAiPrompt(e.target.value)}
-                  placeholder="例如：我想做一个帮助人们习惯养成的 iPhone App，需要有打卡功能和数据统计..."
-                  className="w-full h-32 border border-slate-200 rounded-xl p-4 text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none bg-slate-50"
+                  placeholder="例如：我想做一个帮助人们习惯养成的 iPhone App..."
+                  className="w-full h-32 border border-slate-200 rounded-xl p-4 text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none resize-none bg-slate-50"
                 />
                 <div className="flex justify-end gap-3 mt-4">
-                  <button onClick={() => setShowAIModal(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg font-medium transition-colors">取消</button>
-                  <button 
-                    onClick={handleAIGenerate}
-                    disabled={!aiPrompt || isGenerating}
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg font-medium flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
+                  <button onClick={() => setShowAIModal(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg font-medium">取消</button>
+                  <button onClick={handleAIGenerate} disabled={!aiPrompt || isGenerating} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg font-medium flex items-center gap-2">
                     {isGenerating ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-                    {isGenerating ? '正在思考拆解...' : '开始生成'}
+                    {isGenerating ? '正在规划...' : '生成蓝图'}
                   </button>
                 </div>
               </div>
@@ -377,7 +463,7 @@ const MainContent = ({ user }: { user: User | null }) => {
 };
 
 // ==============================================================================
-// 4. 🛡️ 系统底层 (Wrapper - 保持不变)
+// 4. 🛡️ 系统底层 (Wrapper)
 // ==============================================================================
 export default function App() {
   const [isReady, setIsReady] = useState(false);
