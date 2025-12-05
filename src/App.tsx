@@ -94,7 +94,6 @@ type Project = {
   description: string;
   progress: number;
   createdAt: any;
-  // 为了演示，模块数据我们暂时还是生成的，但项目本身是真实的
   modules?: any[]; 
 };
 
@@ -123,8 +122,12 @@ const LoginScreen = ({ onLogin, lang, setLang, isLoggingIn }: any) => {
 
         <form onSubmit={(e) => { e.preventDefault(); onLogin(name); }} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Display Name</label>
+            <label htmlFor="login-name" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Display Name</label>
+            {/* 修复：添加 name, id, autoComplete 属性以防止插件报错 */}
             <input 
+              id="login-name"
+              name="displayName"
+              autoComplete="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={t.placeholder}
@@ -149,20 +152,20 @@ const LoginScreen = ({ onLogin, lang, setLang, isLoggingIn }: any) => {
 // 5. 🏗️ 主应用组件 (Main App)
 // ==============================================================================
 const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore, auth: Auth, appId: string }) => {
-  const [lang, setLang] = useState<'en' | 'zh'>('zh'); // 默认中文
+  const [lang, setLang] = useState<'en' | 'zh'>('zh'); 
   const [projects, setProjects] = useState<Project[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newProjectTitle, setNewProjectTitle] = useState('');
   const [newProjectDesc, setNewProjectDesc] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true); // 新增数据加载状态
 
   const t = TRANSLATIONS[lang];
 
-  // 🟢 实时监听数据库 (Real-time Database Listener)
+  // 🟢 实时监听数据库
   useEffect(() => {
     if (!user || !db) return;
     
-    // 监听路径: artifacts/{appId}/users/{uid}/projects
     const q = query(
       collection(db, 'artifacts', appId, 'users', user.uid, 'projects'),
       orderBy('createdAt', 'desc')
@@ -174,12 +177,13 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore, aut
         ...doc.data()
       })) as Project[];
       setProjects(list);
+      setIsLoadingData(false); // 数据加载完成
     });
 
     return () => unsubscribe();
   }, [user, db, appId]);
 
-  // 🟢 创建项目 (Real Write)
+  // 🟢 创建项目
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProjectTitle.trim()) return;
@@ -191,7 +195,6 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore, aut
         description: newProjectDesc || 'No description',
         progress: 0,
         createdAt: serverTimestamp(),
-        // 自动生成一些演示模块，让项目看起来不空
         modules: [
           { id: 'm1', title: 'Phase 1: Planning', isCompleted: true, timeEstimate: '2h' },
           { id: 'm2', title: 'Phase 2: Execution', isCompleted: false, timeEstimate: '5h' }
@@ -208,7 +211,6 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore, aut
     }
   };
 
-  // 🟢 删除项目 (Real Delete)
   const handleDelete = async (id: string) => {
     if (confirm("确定要删除这个项目吗？")) {
       await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'projects', id));
@@ -226,6 +228,20 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore, aut
           <div>
             <h1 className="font-bold text-lg tracking-tight">Project Nexus</h1>
             <p className="text-[10px] text-indigo-300 font-medium tracking-wider mt-1 opacity-80">{t.sidebar.workspace}</p>
+          </div>
+        </div>
+
+        {/* 修复：给搜索框添加 name 和 id */}
+        <div className="px-5 mb-6">
+          <div className="relative group">
+            <Search className="absolute left-3 top-3 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={16} />
+            <input 
+              id="sidebar-search"
+              name="search"
+              type="text" 
+              placeholder="快速查找..." 
+              className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:bg-slate-800 text-slate-200" 
+            />
           </div>
         </div>
 
@@ -247,7 +263,6 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore, aut
                 <LogOut size={10} /> {t.sidebar.logout}
               </button>
             </div>
-            {/* Language Switcher Mini */}
             <div className="flex flex-col gap-1">
                <button onClick={() => setLang('en')} className={`text-[10px] ${lang==='en'?'text-white':'text-slate-600'}`}>EN</button>
                <button onClick={() => setLang('zh')} className={`text-[10px] ${lang==='zh'?'text-white':'text-slate-600'}`}>中</button>
@@ -258,7 +273,6 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore, aut
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-white relative">
-        {/* Header */}
         <header className="h-16 border-b border-slate-100 flex items-center justify-between px-6 bg-white/80 backdrop-blur-md sticky top-0 z-10">
           <h2 className="text-lg font-bold text-slate-800">{t.sidebar.myProjects}</h2>
           <button onClick={() => setShowCreateModal(true)} className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 shadow-lg">
@@ -266,13 +280,16 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore, aut
           </button>
         </header>
 
-        {/* Project List */}
         <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50/30">
           <div className="max-w-6xl mx-auto">
             <h1 className="text-3xl font-bold text-slate-900 mb-2">{t.dashboard.welcome} {user.displayName}</h1>
             <p className="text-slate-500 mb-8">{t.dashboard.subtitle}</p>
 
-            {projects.length === 0 ? (
+            {isLoadingData ? (
+              <div className="flex justify-center py-20">
+                <Loader2 className="animate-spin text-indigo-500 w-10 h-10" />
+              </div>
+            ) : projects.length === 0 ? (
               <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
                 <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400"><Folder size={32}/></div>
                 <p className="text-slate-500 mb-4">{t.dashboard.noProjects}</p>
@@ -280,13 +297,11 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore, aut
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                 {/* Create Card */}
                  <div onClick={() => setShowCreateModal(true)} className="bg-slate-100 rounded-2xl p-6 border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 cursor-pointer hover:border-indigo-400 hover:text-indigo-500 hover:bg-indigo-50 transition-all group min-h-[200px]">
                     <Plus size={40} className="mb-2 group-hover:scale-110 transition-transform"/>
                     <span className="font-bold">{t.dashboard.newProject}</span>
                  </div>
 
-                 {/* Real Project Cards */}
                  {projects.map(project => (
                    <div key={project.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-indigo-100 transition-all flex flex-col justify-between group">
                      <div>
@@ -313,19 +328,34 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore, aut
           </div>
         </div>
 
-        {/* Create Modal */}
         {showCreateModal && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95 duration-200">
               <h3 className="text-xl font-bold mb-4">{t.modal.createTitle}</h3>
               <form onSubmit={handleCreateProject}>
                 <div className="mb-4">
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t.modal.nameLabel}</label>
-                  <input autoFocus value={newProjectTitle} onChange={e => setNewProjectTitle(e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none" required />
+                  <label htmlFor="proj-title" className="block text-xs font-bold text-slate-500 uppercase mb-1">{t.modal.nameLabel}</label>
+                  {/* 修复：添加 name/id */}
+                  <input 
+                    id="proj-title"
+                    name="projectTitle"
+                    autoFocus 
+                    value={newProjectTitle} 
+                    onChange={e => setNewProjectTitle(e.target.value)} 
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none" 
+                    required 
+                  />
                 </div>
                 <div className="mb-6">
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t.modal.descLabel}</label>
-                  <textarea value={newProjectDesc} onChange={e => setNewProjectDesc(e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-2 h-20 focus:ring-2 focus:ring-indigo-500 outline-none resize-none" />
+                  <label htmlFor="proj-desc" className="block text-xs font-bold text-slate-500 uppercase mb-1">{t.modal.descLabel}</label>
+                  {/* 修复：添加 name/id */}
+                  <textarea 
+                    id="proj-desc"
+                    name="projectDescription"
+                    value={newProjectDesc} 
+                    onChange={e => setNewProjectDesc(e.target.value)} 
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 h-20 focus:ring-2 focus:ring-indigo-500 outline-none resize-none" 
+                  />
                 </div>
                 <div className="flex justify-end gap-3">
                   <button type="button" onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg font-medium">{t.modal.cancel}</button>
@@ -393,11 +423,8 @@ export default function App() {
     if (!authRef.current) return;
     setIsLoggingIn(true);
     try {
-      // 1. 匿名登录
       const userCredential = await signInAnonymously(authRef.current);
-      // 2. 更新用户名 (模拟注册)
       await updateProfile(userCredential.user, { displayName: username });
-      // 3. 强制刷新本地状态
       setCurrentUser({ ...userCredential.user, displayName: username });
     } catch (e) {
       alert("登录失败，请重试");
@@ -408,7 +435,6 @@ export default function App() {
 
   if (!isReady) return <div className="min-h-screen flex items-center justify-center bg-[#0F172A]"><Loader2 className="animate-spin text-indigo-500 w-8 h-8" /></div>;
 
-  // 🔴 核心逻辑：如果没登录，显示登录页；如果登录了，显示主应用
   if (!currentUser) {
     return <LoginScreen onLogin={handleLogin} lang={loginLang} setLang={setLoginLang} isLoggingIn={isLoggingIn} />;
   }
