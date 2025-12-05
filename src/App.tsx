@@ -1,101 +1,136 @@
 import React, { useState, useEffect } from 'react';
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { AlertTriangle, CheckCircle2, Server, Globe, ShieldCheck } from 'lucide-react';
+import { AlertOctagon, CheckCircle2, ShieldAlert, Terminal } from 'lucide-react';
 
-/**
- * =========================================================================
- * 🛠️ 关键修复区域：在此处填入你的 Firebase 配置
- * =========================================================================
- * * 为什么需要这样做？
- * 本地开发时，工具可能会自动注入配置。
- * 但部署到你自己的服务器时，这些魔法变量消失了，必须手动写死(Hardcode)配置。
- */
-const manualConfig = {
-  // ⚠️ 请去 Firebase 控制台复制真实数据替换下面的占位符
-  apiKey: "AIzaSyDriBJ3yHf2XnNf5ouXd7S_KZsMu7V4w58",             // 例如: "AIzaSy..."
-  authDomain: "project-nexus-9b304.firebaseapp.com",
-  projectId: "project-nexus-9b304",
-  storageBucket: "project-nexus-9b304.firebasestorage.app",
-  messagingSenderId: "373323289724",
-  appId: "1:373323289724:web:a7f5ce28e83ee9747825f9"
+// ==========================================
+// 1. 在这里填入你的真实 Firebase 配置
+//    (这是解决白屏的唯一核心)
+// ==========================================
+const MANUAL_CONFIG = {
+  apiKey: "AIzaSyDriBJ3yHf2XnNf5ouXd7S_KZsMu7V4w58", // ⚠️ 必须替换成你的真实 Key
+  authDomain: "your-project.firebaseapp.com",
+  projectId: "your-project-id",
+  storageBucket: "your-project.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "1:123456789:web:abcdef"
 };
 
-// --- Firebase 初始化逻辑 (防崩溃版) ---
-let app;
-let auth;
-let db;
-let initStatus = { success: false, message: '' };
+// ==========================================
+// 2. 安全的 Firebase 初始化函数
+//    (不会在加载时崩溃，而是返回结果)
+// ==========================================
+function initFirebaseSafe() {
+  try {
+    // A. 尝试获取配置
+    let config = null;
+    let source = "unknown";
 
-try {
-  // 1. 优先尝试读取 AI 环境/本地环境注入的变量 (如果有的话)
-  let config;
-  if (typeof __firebase_config !== 'undefined') {
-    config = JSON.parse(__firebase_config);
-    initStatus.source = 'Auto-Injected (AI Environment)';
-  } else {
-    // 2. 如果没有注入变量（比如在你的服务器上），则使用上面的手动配置
-    config = manualConfig;
-    initStatus.source = 'Manual Config (Hardcoded)';
+    // 优先使用手动配置（解决服务器白屏的关键）
+    if (MANUAL_CONFIG.apiKey !== "AIzaSyXXXXXXXXXXXXXXXXXXXXXXX") {
+      config = MANUAL_CONFIG;
+      source = "Manual Config (Hardcoded)";
+    } 
+    // 其次尝试环境变量（本地开发）
+    else if (typeof __firebase_config !== 'undefined') {
+      config = JSON.parse(__firebase_config);
+      source = "Auto-Injected (__firebase_config)";
+    }
+
+    // B. 如果没有配置，抛出明确错误
+    if (!config) {
+      throw new Error("找不到有效的 Firebase 配置。请在 App.jsx 的 MANUAL_CONFIG 中填入数据。");
+    }
+
+    // C. 防止重复初始化
+    let app;
+    if (getApps().length > 0) {
+      app = getApp();
+    } else {
+      app = initializeApp(config);
+    }
+
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    return { success: true, app, auth, db, source };
+
+  } catch (error) {
+    return { success: false, error: error };
   }
-
-  // 3. 安全检查：如果配置还是空的，或者 apiKey 没填，就标记为失败，不要调用 initializeApp 防止白屏
-  if (!config || !config.apiKey || config.apiKey === "YOUR_API_KEY_HERE") {
-    throw new Error("配置缺失！请在代码中填入 manualConfig 的真实数据。");
-  }
-
-  // 4. 初始化
-  app = initializeApp(config);
-  auth = getAuth(app);
-  db = getFirestore(app);
-  initStatus.success = true;
-  initStatus.message = "Firebase 初始化成功";
-
-} catch (e) {
-  console.error("Firebase Init Error:", e);
-  initStatus.success = false;
-  initStatus.message = e.message;
 }
-// ----------------------------------------
 
+// ==========================================
+// 3. 主界面组件
+// ==========================================
 export default function App() {
-  const [isConfigured, setIsConfigured] = useState(false);
+  const [status, setStatus] = useState({ loading: true, error: null, info: null });
 
   useEffect(() => {
-    // 简单的检查，看是否初始化成功
-    if (initStatus.success) {
-      setIsConfigured(true);
-    }
+    // 延迟 100ms 执行，确保 React 先渲染出界面，避免白屏
+    const timer = setTimeout(() => {
+      const result = initFirebaseSafe();
+      
+      if (result.success) {
+        setStatus({ loading: false, error: null, info: result });
+        console.log("Firebase initialized via:", result.source);
+      } else {
+        setStatus({ loading: false, error: result.error, info: null });
+        console.error("Firebase Init Failed:", result.error);
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, []);
 
-  // 如果初始化失败（比如没填 key），显示这个配置引导页面
-  if (!initStatus.success) {
+  // --- 状态 1: 加载中 ---
+  if (status.loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
-        <div className="max-w-md w-full bg-white rounded-xl shadow-lg overflow-hidden border border-red-100">
-          <div className="bg-red-50 p-6 border-b border-red-100">
-            <div className="flex items-center gap-3 text-red-700 mb-2">
-              <AlertTriangle className="w-8 h-8" />
-              <h1 className="text-xl font-bold">应用启动失败</h1>
-            </div>
-            <p className="text-red-600/80 text-sm leading-relaxed">
-              检测到 Firebase 初始化错误，这正是导致服务器白屏的原因。
-            </p>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="w-12 h-12 bg-blue-200 rounded-full mb-4"></div>
+          <div className="h-4 w-48 bg-slate-200 rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- 状态 2: 依然报错 (红屏) ---
+  if (status.error) {
+    return (
+      <div className="min-h-screen bg-red-50 flex items-center justify-center p-4">
+        <div className="max-w-xl w-full bg-white rounded-xl shadow-2xl overflow-hidden border border-red-200">
+          <div className="bg-red-600 px-6 py-4 flex items-center gap-3">
+            <ShieldAlert className="text-white w-8 h-8" />
+            <h1 className="text-white font-bold text-xl">初始化失败 (App Crashed)</h1>
           </div>
           
-          <div className="p-6 space-y-4">
-            <div className="bg-slate-100 p-3 rounded text-xs font-mono text-slate-600 break-all">
-              Error: {initStatus.message}
+          <div className="p-8 space-y-6">
+            <div>
+              <h2 className="text-red-800 font-bold mb-2">错误详情:</h2>
+              <div className="bg-slate-900 p-4 rounded-lg overflow-x-auto">
+                <code className="text-red-400 font-mono text-sm break-all">
+                  {status.error.toString()}
+                  {status.error.code === 'app/no-options' && (
+                    <span className="block mt-2 text-yellow-400">
+                      👉 也就是：initializeApp() 接收到了空值。
+                    </span>
+                  )}
+                </code>
+              </div>
             </div>
 
-            <div className="space-y-3 text-sm text-slate-600">
-              <p className="font-semibold text-slate-800">如何修复：</p>
-              <ol className="list-decimal pl-4 space-y-2">
-                <li>打开你的项目文件 <code>src/App.jsx</code> (或其他入口文件)</li>
-                <li>找到 <code>manualConfig</code> 对象</li>
-                <li>将 <code>YOUR_API_KEY_HERE</code> 等占位符替换为你真实的 Firebase 项目配置</li>
-                <li>重新构建并部署到服务器</li>
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+              <h3 className="font-bold text-yellow-800 mb-1">如何修复?</h3>
+              <p className="text-yellow-700 text-sm mb-2">
+                看起来你的代码里没有有效的 Firebase 配置。
+              </p>
+              <ol className="list-decimal list-inside text-sm text-yellow-800 space-y-1">
+                <li>打开 <code>src/App.jsx</code></li>
+                <li>找到顶部的 <code>MANUAL_CONFIG</code> 对象</li>
+                <li>填入你从 Firebase 控制台获取的 apiKey 等信息</li>
+                <li>保存并重新部署</li>
               </ol>
             </div>
           </div>
@@ -104,61 +139,44 @@ export default function App() {
     );
   }
 
-  // 如果初始化成功，显示正常应用界面 (这里是一个简单的 Dashboard 示例)
+  // --- 状态 3: 成功 (绿屏) ---
   return (
-    <div className="min-h-screen bg-slate-100 font-sans text-slate-800">
-      <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="text-emerald-500 w-6 h-6" />
-          <span className="font-bold text-lg">系统状态正常</span>
-        </div>
-        <div className="text-xs font-mono bg-emerald-50 text-emerald-600 px-2 py-1 rounded border border-emerald-100">
-          Status: Connected
-        </div>
-      </header>
-
-      <main className="p-6 max-w-4xl mx-auto space-y-6">
-        <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-emerald-500">
-          <h2 className="text-xl font-bold mb-2 flex items-center gap-2">
-            <CheckCircle2 className="text-emerald-500" />
-            白屏问题已修复
-          </h2>
-          <p className="text-slate-600 mb-4">
-            Firebase 已成功初始化。现在你的应用已经连接到了生产环境的配置。
-          </p>
-          <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
-            <h3 className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
-              <Server className="w-4 h-4" />
-              当前配置来源
-            </h3>
-            <p className="text-sm text-slate-600 font-mono">
-              {initStatus.source}
-            </p>
+    <div className="min-h-screen bg-slate-100 font-sans text-slate-800 p-8">
+      <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
+        <div className="bg-emerald-500 px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3 text-white">
+            <CheckCircle2 className="w-8 h-8" />
+            <h1 className="font-bold text-xl">应用已恢复正常</h1>
           </div>
+          <span className="bg-emerald-600 text-white text-xs px-2 py-1 rounded border border-emerald-400">
+            System Online
+          </span>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="bg-white p-6 rounded-xl shadow-sm">
-            <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center mb-4">
-              <Globe className="w-6 h-6" />
+        <div className="p-8 space-y-6">
+          <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+            <Terminal className="text-slate-400 mt-1 shrink-0" />
+            <div>
+              <h3 className="font-bold text-slate-700">配置来源诊断</h3>
+              <p className="text-slate-500 text-sm mt-1">
+                成功连接到 Firebase。当前使用的配置来源是：
+              </p>
+              <div className="mt-2 inline-block px-3 py-1 bg-blue-100 text-blue-700 text-xs font-mono rounded-full">
+                {status.info.source}
+              </div>
             </div>
-            <h3 className="font-bold text-slate-800 mb-1">网络连接</h3>
-            <p className="text-sm text-slate-500">
-              如果你能看到这个图标，说明你的服务器不仅加载了 JS，而且成功执行了 Firebase 连接逻辑。
-            </p>
           </div>
-          
-          <div className="bg-white p-6 rounded-xl shadow-sm">
-            <div className="w-10 h-10 bg-purple-100 text-purple-600 rounded-lg flex items-center justify-center mb-4">
-              <Server className="w-6 h-6" />
-            </div>
-            <h3 className="font-bold text-slate-800 mb-1">下一步</h3>
-            <p className="text-sm text-slate-500">
-              现在你可以将这里的逻辑应用回你真正的业务代码中。核心要点是保留 <code>manualConfig</code> 并在 <code>__firebase_config</code> 缺失时使用它。
+
+          <div className="border-t pt-6">
+            <h3 className="font-bold text-lg mb-4">下一步</h3>
+            <p className="text-slate-600 leading-relaxed">
+              恭喜！如果看到这个页面，说明白屏问题彻底解决了。
+              <br /><br />
+              你可以开始把你的业务逻辑（登录、数据读取等）写在这个组件里，或者恢复你原来的组件，但请务必保留 <code>MANUAL_CONFIG</code> 和 <code>initFirebaseSafe</code> 的逻辑。
             </p>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
