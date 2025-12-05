@@ -120,14 +120,17 @@ const LoginScreen = ({ onLogin, lang, setLang, isLoggingIn }: any) => {
         <h1 className="text-2xl font-bold text-slate-900 mb-2">{t.title}</h1>
         <p className="text-slate-500 mb-8">{t.subtitle}</p>
 
-        <form onSubmit={(e) => { e.preventDefault(); onLogin(name); }} className="space-y-4">
+        {/* 修复：添加 noValidate 防止浏览器默认验证干扰 */}
+        <form onSubmit={(e) => { e.preventDefault(); onLogin(name); }} className="space-y-4" noValidate>
           <div>
             <label htmlFor="login-name" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Display Name</label>
-            {/* 修复：添加 name, id, autoComplete 属性以防止插件报错 */}
             <input 
               id="login-name"
               name="displayName"
-              autoComplete="name"
+              // 修复：彻底禁用自动完成和拼写检查，防止插件注入
+              autoComplete="off"
+              spellCheck={false}
+              data-form-type="other"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={t.placeholder}
@@ -158,11 +161,10 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore, aut
   const [newProjectTitle, setNewProjectTitle] = useState('');
   const [newProjectDesc, setNewProjectDesc] = useState('');
   const [isCreating, setIsCreating] = useState(false);
-  const [isLoadingData, setIsLoadingData] = useState(true); // 新增数据加载状态
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
   const t = TRANSLATIONS[lang];
 
-  // 🟢 实时监听数据库
   useEffect(() => {
     if (!user || !db) return;
     
@@ -177,13 +179,12 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore, aut
         ...doc.data()
       })) as Project[];
       setProjects(list);
-      setIsLoadingData(false); // 数据加载完成
+      setIsLoadingData(false);
     });
 
     return () => unsubscribe();
   }, [user, db, appId]);
 
-  // 🟢 创建项目
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProjectTitle.trim()) return;
@@ -231,7 +232,6 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore, aut
           </div>
         </div>
 
-        {/* 修复：给搜索框添加 name 和 id */}
         <div className="px-5 mb-6">
           <div className="relative group">
             <Search className="absolute left-3 top-3 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={16} />
@@ -239,6 +239,8 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore, aut
               id="sidebar-search"
               name="search"
               type="text" 
+              autoComplete="off" // 修复：禁用自动完成
+              spellCheck={false} // 修复：禁用拼写检查
               placeholder="快速查找..." 
               className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:bg-slate-800 text-slate-200" 
             />
@@ -332,14 +334,16 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore, aut
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95 duration-200">
               <h3 className="text-xl font-bold mb-4">{t.modal.createTitle}</h3>
-              <form onSubmit={handleCreateProject}>
+              <form onSubmit={handleCreateProject} noValidate>
                 <div className="mb-4">
                   <label htmlFor="proj-title" className="block text-xs font-bold text-slate-500 uppercase mb-1">{t.modal.nameLabel}</label>
-                  {/* 修复：添加 name/id */}
                   <input 
                     id="proj-title"
                     name="projectTitle"
                     autoFocus 
+                    // 修复：禁用自动完成和拼写检查
+                    autoComplete="off"
+                    spellCheck={false}
                     value={newProjectTitle} 
                     onChange={e => setNewProjectTitle(e.target.value)} 
                     className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none" 
@@ -348,10 +352,12 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore, aut
                 </div>
                 <div className="mb-6">
                   <label htmlFor="proj-desc" className="block text-xs font-bold text-slate-500 uppercase mb-1">{t.modal.descLabel}</label>
-                  {/* 修复：添加 name/id */}
                   <textarea 
                     id="proj-desc"
                     name="projectDescription"
+                    // 修复：禁用自动完成和拼写检查
+                    autoComplete="off"
+                    spellCheck={false}
                     value={newProjectDesc} 
                     onChange={e => setNewProjectDesc(e.target.value)} 
                     className="w-full border border-slate-300 rounded-lg px-3 py-2 h-20 focus:ring-2 focus:ring-indigo-500 outline-none resize-none" 
