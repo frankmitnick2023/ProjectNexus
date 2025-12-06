@@ -6,7 +6,9 @@ import {
   Layout, Plus, Search, Folder, 
   LogOut, Loader2, Sparkles, 
   Workflow, Trash2, LogIn, UserCircle, 
-  AlertTriangle, CloudLightning, HardDrive
+  AlertTriangle, CloudLightning, HardDrive,
+  BrainCircuit, Network, List, CheckCircle2, 
+  MoreHorizontal, ChevronRight, Calendar, ArrowLeft, Bell
 } from 'lucide-react';
 
 // ==============================================================================
@@ -23,55 +25,103 @@ const MANUAL_CONFIG = {
 };
 
 // ==============================================================================
-// 2. 💾 本地优先引擎
+// 2. 💾 数据结构 & 本地引擎
 // ==============================================================================
-const LOCAL_STORAGE_KEY = 'nexus_projects_v4';
+const LOCAL_STORAGE_KEY = 'nexus_projects_v5_ultimate';
 
+type SubTask = { id: string; title: string; isCompleted: boolean; };
+type Module = { id: string; title: string; isCompleted: boolean; timeEstimate: string; subTasks?: SubTask[]; };
 type Project = { 
   id: string; 
   title: string; 
   description: string; 
   progress: number; 
   createdAt: number; 
-  modules?: any[]; 
+  modules?: Module[]; 
+  members?: string[];
   syncStatus: 'synced' | 'pending' | 'error';
 };
 
 // ==============================================================================
-// 3. 🌍 多语言 (绝对防御版)
+// 3. 🌍 多语言 (全功能版)
 // ==============================================================================
 const TRANSLATIONS = {
   en: {
-    login: { title: "Nexus Workspace", subtitle: "Local-First + Cloud Sync.", placeholder: "Your Name", btn: "Enter" },
-    sidebar: { workspace: "WORKSPACE", myProjects: "My Projects", logout: "Log Out" },
-    dashboard: { welcome: "Welcome,", subtitle: "Projects load instantly from local storage.", newProject: "New Project", noProjects: "No projects. Start building!", createBtn: "Create" },
-    modal: { createTitle: "New Project", nameLabel: "Name", descLabel: "Description", cancel: "Cancel", create: "Create" },
+    login: { title: "Nexus Workspace", subtitle: "Local-First + AI Power.", placeholder: "Your Name", btn: "Enter" },
+    sidebar: { workspace: "WORKSPACE", myProjects: "My Projects", team: "Team", ai: "AI Studio", settings: "Settings", logout: "Log Out" },
+    dashboard: { welcome: "Welcome,", subtitle: "Your creative command center.", newProject: "New Project", noProjects: "No projects. Create one!", createBtn: "Create", aiCardTitle: "AI Planner", aiCardDesc: "Turn ideas into blueprints." },
+    detail: { overview: "Overview", blocks: "Task Blocks", addBlock: "Add Module", flow: "Blueprint View", list: "List View" },
+    modal: { title: "AI Project Planner", desc: "Describe your idea, AI will break it down.", placeholder: "E.g. A fitness app with social features...", cancel: "Cancel", generate: "Generate Project" },
     status: { saved: "Cloud Synced", pending: "Local Only", error: "Sync Failed" }
   },
   zh: {
-    login: { title: "Nexus 工作台", subtitle: "本地优先架构 + 云端自动同步", placeholder: "你的昵称", btn: "进入工作区" },
-    sidebar: { workspace: "工作区", myProjects: "我的项目库", logout: "退出登录" },
-    dashboard: { welcome: "欢迎回来，", subtitle: "操作即时响应，后台自动同步。", newProject: "新建项目", noProjects: "暂无项目。创建你的第一个作品！", createBtn: "立即创建" },
-    modal: { createTitle: "创建新项目", nameLabel: "项目名称", descLabel: "项目简介", cancel: "取消", create: "确认创建" },
+    login: { title: "Nexus 工作台", subtitle: "本地优先架构 + AI 赋能", placeholder: "你的昵称", btn: "进入工作区" },
+    sidebar: { workspace: "工作区", myProjects: "我的项目库", team: "团队协作", ai: "AI 创意工坊", settings: "设置", logout: "退出登录" },
+    dashboard: { welcome: "欢迎回来，", subtitle: "你的创意指挥中心。", newProject: "新建项目", noProjects: "暂无项目。创建你的第一个作品！", createBtn: "立即创建", aiCardTitle: "AI 规划师", aiCardDesc: "一键将想法转化为蓝图。" },
+    detail: { overview: "概览", blocks: "任务积木", addBlock: "添加模块", flow: "蓝图视图", list: "列表视图" },
+    modal: { title: "AI 项目规划师", desc: "描述你的想法，AI 帮你拆解为可执行积木。", placeholder: "例如：做一个带有社交功能的健身 App...", cancel: "取消", generate: "生成项目架构" },
     status: { saved: "已同步云端", pending: "仅本地保存", error: "同步失败" }
   }
 };
 
-// 🛡️ 安全获取翻译：即使字典炸了，也能返回英文，保证不白屏
+// 🛡️ 绝对防御：防止任何 undefined 报错
 const useSafeT = (lang: 'en' | 'zh') => {
   const dict = TRANSLATIONS[lang] || TRANSLATIONS['en'];
   return {
-    ...dict,
-    sidebar: dict.sidebar || TRANSLATIONS['en'].sidebar, // 双重保险
-    dashboard: dict.dashboard || TRANSLATIONS['en'].dashboard,
-    login: dict.login || TRANSLATIONS['en'].login,
-    modal: dict.modal || TRANSLATIONS['en'].modal,
-    status: dict.status || TRANSLATIONS['en'].status,
+    login: dict.login || TRANSLATIONS.en.login,
+    sidebar: dict.sidebar || TRANSLATIONS.en.sidebar,
+    dashboard: dict.dashboard || TRANSLATIONS.en.dashboard,
+    detail: dict.detail || TRANSLATIONS.en.detail,
+    modal: dict.modal || TRANSLATIONS.en.modal,
+    status: dict.status || TRANSLATIONS.en.status,
   };
 };
 
 // ==============================================================================
-// 4. 🔐 登录组件
+// 4. 🧩 蓝图视图组件 (Blueprint View) - 恢复功能
+// ==============================================================================
+const BlueprintView = ({ project }: { project: Project }) => {
+  return (
+    <div className="relative w-full h-full overflow-auto bg-slate-50/50 p-10 flex items-center justify-start min-h-[500px]">
+      <div className="flex gap-16 items-center animate-in fade-in zoom-in-95 duration-500">
+        {/* 根节点 */}
+        <div className="relative z-10">
+          <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl shadow-indigo-200 border-4 border-indigo-100 w-64 text-center relative group">
+             <div className="absolute -top-3 -right-3 bg-indigo-500 rounded-full p-2 shadow-lg"><Layout size={20}/></div>
+             <h3 className="font-bold text-lg mb-1">{project.title}</h3>
+             <div className="text-xs text-slate-400">Progress {project.progress}%</div>
+             <div className="absolute top-1/2 -right-3 w-3 h-3 bg-indigo-500 rounded-full" />
+          </div>
+        </div>
+
+        {/* 模块层级 */}
+        <div className="flex flex-col gap-8 relative">
+           <div className="absolute left-[-32px] top-10 bottom-10 w-0.5 bg-indigo-200 rounded-full"></div>
+           {project.modules?.map((module) => (
+             <div key={module.id} className="relative flex items-center group">
+               <div className="w-16 h-0.5 bg-indigo-200 absolute -left-16 top-1/2 transition-all group-hover:bg-indigo-400"></div>
+               <div className="absolute -left-16 top-1/2 w-2 h-2 bg-indigo-500 rounded-full transform -translate-x-1/2 -translate-y-1/2"></div>
+               
+               <div className={`w-64 p-4 rounded-xl border-2 transition-all bg-white hover:scale-105 duration-200 ${module.isCompleted ? 'border-green-400/50 shadow-green-100' : 'border-slate-200 shadow-sm hover:border-indigo-400'}`}>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${module.isCompleted ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                      {module.isCompleted ? 'DONE' : 'PENDING'}
+                    </span>
+                    <MoreHorizontal size={16} className="text-slate-300"/>
+                  </div>
+                  <h4 className="font-bold text-slate-800">{module.title}</h4>
+                  <p className="text-xs text-slate-400 mt-1 flex items-center gap-1"><Calendar size={10}/> {module.timeEstimate}</p>
+               </div>
+             </div>
+           ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ==============================================================================
+// 5. 🔐 登录组件
 // ==============================================================================
 const LoginScreen = ({ onLogin, lang, setLang, isLoggingIn }: any) => {
   const [name, setName] = useState('');
@@ -87,27 +137,22 @@ const LoginScreen = ({ onLogin, lang, setLang, isLoggingIn }: any) => {
              <button onClick={() => setLang('zh')} className={`px-2 py-1 text-xs font-bold rounded ${lang === 'zh' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-400'}`}>中文</button>
            </div>
         </div>
-        <h1 className="text-2xl font-bold text-slate-900 mb-2">{t.title}</h1>
-        <p className="text-slate-500 mb-8">{t.subtitle}</p>
+        <h1 className="text-2xl font-bold text-slate-900 mb-2">{t?.title || "Nexus"}</h1>
+        <p className="text-slate-500 mb-8">{t?.subtitle || "Enter Workspace"}</p>
         <form onSubmit={(e) => { e.preventDefault(); onLogin(name); }} className="space-y-4">
           <div>
             <input 
-              // 🛡️ 防插件干扰盾：彻底禁用自动填充，防止 LastPass 报错
-              autoComplete="off" 
-              spellCheck={false} 
-              data-lpignore="true" 
-              data-form-type="other"
-              name="nexus-username-field"
-              value={name} 
-              onChange={(e) => setName(e.target.value)} 
-              placeholder={t.placeholder} 
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-slate-800" 
+              // 🛡️ 防插件报错：禁用自动填充
+              autoComplete="off" spellCheck={false} data-lpignore="true" data-form-type="other"
+              value={name} onChange={(e) => setName(e.target.value)} 
+              placeholder={t?.placeholder || "Name"} 
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none font-medium" 
               required 
             />
           </div>
           <button disabled={isLoggingIn || !name.trim()} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-xl shadow-xl shadow-indigo-200 transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2">
             {isLoggingIn ? <Loader2 className="animate-spin" /> : <LogIn size={20} />}
-            {isLoggingIn ? "Loading..." : t.btn}
+            {isLoggingIn ? "Connecting..." : t?.btn || "Enter"}
           </button>
         </form>
       </div>
@@ -116,20 +161,23 @@ const LoginScreen = ({ onLogin, lang, setLang, isLoggingIn }: any) => {
 };
 
 // ==============================================================================
-// 5. 🏗️ 主应用组件
+// 6. 🏗️ 主应用组件 (核心逻辑)
 // ==============================================================================
 const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | null, auth: Auth | null, appId: string }) => {
   const [lang, setLang] = useState<'en' | 'zh'>('zh'); 
+  const [view, setView] = useState<'dashboard' | 'detail'>('dashboard'); // 视图状态
+  const [projectMode, setProjectMode] = useState<'list' | 'blueprint'>('list'); // 详情模式
+  const [activeProject, setActiveProject] = useState<Project | null>(null);
+  
   const [projects, setProjects] = useState<Project[]>([]);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newProjectTitle, setNewProjectTitle] = useState('');
-  const [newProjectDesc, setNewProjectDesc] = useState('');
+  const [showAIModal, setShowAIModal] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isCloudConnected, setIsCloudConnected] = useState(false);
 
-  // 使用安全翻译
   const t = useSafeT(lang);
 
-  // 🔄 初始化：加载本地数据
+  // 🔄 加载本地数据
   useEffect(() => {
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (saved) {
@@ -137,100 +185,80 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
         const parsed = JSON.parse(saved);
         parsed.sort((a: any, b: any) => b.createdAt - a.createdAt);
         setProjects(parsed);
-      } catch (e) { console.error("Local storage error", e); }
+      } catch (e) {}
     }
   }, []);
 
-  // 🔄 监听云端 (后台合并)
+  // 🔄 云端同步 (后台)
   useEffect(() => {
     if (!user || !db) return;
     const q = query(collection(db, 'artifacts', appId, 'users', user.uid, 'projects'));
-    
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setIsCloudConnected(true);
-      const cloudProjects = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        syncStatus: 'synced'
-      })) as Project[];
-
-      setProjects(prevLocal => {
+      const cloudProjects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), syncStatus: 'synced' })) as Project[];
+      setProjects(prev => {
         const cloudIds = new Set(cloudProjects.map(p => p.id));
-        const pendingLocal = prevLocal.filter(p => !cloudIds.has(p.id));
+        const pendingLocal = prev.filter(p => !cloudIds.has(p.id));
         const merged = [...pendingLocal, ...cloudProjects];
         merged.sort((a, b) => b.createdAt - a.createdAt);
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));
         return merged;
       });
-    }, (error) => {
-      console.warn("Cloud sync paused (Auth/Network):", error);
-      setIsCloudConnected(false);
-    });
+    }, () => setIsCloudConnected(false));
     return () => unsubscribe();
   }, [user, db, appId]);
 
-  // 🟢 创建项目 (Local-First 极速响应)
-  const handleCreateProject = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newProjectTitle.trim()) return;
+  // 🟢 AI 创建项目 (模拟)
+  const handleAICreate = async () => {
+    if (!aiPrompt.trim()) return;
+    setIsGenerating(true);
     
+    // 模拟 AI 思考时间
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
     const newProject: Project = {
       id: `local-${Date.now()}`,
-      title: newProjectTitle,
-      description: newProjectDesc || '',
+      title: "AI: " + aiPrompt.slice(0, 10) + "...", // 简单取名
+      description: aiPrompt,
       progress: 0,
       createdAt: Date.now(),
-      syncStatus: 'pending'
+      syncStatus: 'pending',
+      modules: [
+        { id: 'm1', title: 'Phase 1: Architecture', isCompleted: false, timeEstimate: '4h' },
+        { id: 'm2', title: 'Phase 2: MVP Development', isCompleted: false, timeEstimate: '10h' },
+        { id: 'm3', title: 'Phase 3: Testing', isCompleted: false, timeEstimate: '3h' },
+      ],
+      members: ['bg-blue-500', 'bg-green-500']
     };
 
-    // ⚡️ 立即更新界面
+    saveProject(newProject);
+    setIsGenerating(false);
+    setShowAIModal(false);
+    setAiPrompt('');
+  };
+
+  // 通用保存逻辑
+  const saveProject = async (newProject: Project) => {
     const updatedList = [newProject, ...projects];
     setProjects(updatedList);
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedList));
-    
-    setShowCreateModal(false);
-    setNewProjectTitle('');
-    setNewProjectDesc('');
 
-    // ☁️ 后台同步
     if (db && user) {
       try {
-        const docRef = await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'projects'), {
-          ...newProject,
-          syncStatus: undefined // 不上传此字段
-        });
-        
-        // 成功后更新本地ID和状态
+        const docRef = await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'projects'), { ...newProject, syncStatus: undefined });
         setProjects(prev => {
-          const newList = prev.map(p => 
-            p.id === newProject.id ? { ...p, id: docRef.id, syncStatus: 'synced' as const } : p
-          );
+          const newList = prev.map(p => p.id === newProject.id ? { ...p, id: docRef.id, syncStatus: 'synced' as const } : p);
           localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newList));
           return newList;
         });
-      } catch (err) {
-        console.error("Upload failed (will retry later):", err);
-        setProjects(prev => {
-          const newList = prev.map(p => 
-            p.id === newProject.id ? { ...p, syncStatus: 'error' as const } : p
-          );
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newList));
-          return newList;
-        });
-      }
+      } catch (err) { console.error("Upload failed", err); }
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete?")) return;
-    const updated = projects.filter(p => p.id !== id);
-    setProjects(updated);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
-
-    if (db && user && !id.startsWith('local-')) {
-      try { await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'projects', id)); } 
-      catch (e) { console.error("Cloud delete failed", e); }
-    }
+  const openProject = (p: Project) => {
+    setActiveProject(p);
+    setView('detail');
+    setProjectMode('list');
   };
 
   return (
@@ -239,41 +267,34 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
       <div className="w-72 bg-[#0F172A] text-slate-400 flex flex-col h-full border-r border-slate-800 flex-shrink-0 hidden md:flex">
         <div className="p-6 flex items-center gap-3 text-white">
           <div className="bg-indigo-600 p-2.5 rounded-xl shadow-lg shadow-indigo-500/20"><Layout size={22} className="text-white" /></div>
-          <div>
-            <h1 className="font-bold text-lg tracking-tight">Project Nexus</h1>
-            <p className="text-[10px] text-indigo-300 font-medium tracking-wider mt-1 opacity-80">{t.sidebar.workspace}</p>
-          </div>
+          <div><h1 className="font-bold text-lg tracking-tight">Project Nexus</h1><p className="text-[10px] text-indigo-300 font-medium tracking-wider mt-1 opacity-80">{t.sidebar?.workspace}</p></div>
         </div>
-
+        
         <div className="px-5 mb-6">
            <div className={`flex items-center gap-2 p-3 rounded-xl text-xs font-bold transition-colors ${isCloudConnected ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}`}>
               {isCloudConnected ? <CloudLightning size={14} /> : <HardDrive size={14} />}
-              {isCloudConnected ? "Cloud Active" : "Local Mode"}
+              {isCloudConnected ? t.status?.saved : t.status?.pending}
            </div>
         </div>
 
         <nav className="flex-1 px-3 space-y-1">
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-indigo-600/10 text-indigo-400 font-medium cursor-pointer">
-            {/* 🛡️ 这里使用了安全翻译对象，再也不会 undefined */}
-            <Folder size={18} /> {t.sidebar.myProjects}
+          <div onClick={() => setView('dashboard')} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${view === 'dashboard' ? 'bg-indigo-600/10 text-indigo-400' : 'hover:bg-slate-800/50'}`}>
+            <Folder size={18} /> {t.sidebar?.myProjects}
+          </div>
+          <div onClick={() => setShowAIModal(true)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-800/50 cursor-pointer">
+            <BrainCircuit size={18} /> {t.sidebar?.ai}
           </div>
         </nav>
 
         <div className="p-4 border-t border-slate-800/60 bg-[#0B1120]">
           <div className="flex items-center gap-3 p-2 rounded-lg">
-            <div className="w-9 h-9 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-sm border border-indigo-400">
-              {user.displayName ? user.displayName[0].toUpperCase() : <UserCircle size={20}/>}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-slate-200 truncate">{user.displayName || 'User'}</div>
-              <button onClick={() => signOut(auth!)} className="text-xs text-slate-500 hover:text-red-400 flex items-center gap-1 mt-0.5 transition-colors">
-                <LogOut size={10} /> {t.sidebar.logout}
-              </button>
-            </div>
-            <div className="flex flex-col gap-1">
-               <button onClick={() => setLang('en')} className={`text-[10px] ${lang==='en'?'text-white':'text-slate-600'}`}>EN</button>
-               <button onClick={() => setLang('zh')} className={`text-[10px] ${lang==='zh'?'text-white':'text-slate-600'}`}>中</button>
-            </div>
+            <div className="w-9 h-9 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-sm">{user.displayName?.[0] || 'U'}</div>
+            <div className="flex-1 min-w-0"><div className="text-sm font-medium text-slate-200 truncate">{user.displayName || 'User'}</div></div>
+            <button onClick={() => signOut(auth!)} className="text-slate-500 hover:text-red-400"><LogOut size={16} /></button>
+          </div>
+          <div className="flex gap-2 mt-2 justify-center">
+             <button onClick={() => setLang('en')} className={`text-[10px] ${lang==='en'?'text-white':'text-slate-600'}`}>EN</button>
+             <button onClick={() => setLang('zh')} className={`text-[10px] ${lang==='zh'?'text-white':'text-slate-600'}`}>中</button>
           </div>
         </div>
       </div>
@@ -281,94 +302,97 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-white relative">
         <header className="h-16 border-b border-slate-100 flex items-center justify-between px-6 bg-white/80 backdrop-blur-md sticky top-0 z-10">
-          <h2 className="text-lg font-bold text-slate-800">{t.sidebar.myProjects}</h2>
-          <button onClick={() => setShowCreateModal(true)} className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 shadow-lg">
-            <Plus size={16} /> {t.dashboard.newProject}
-          </button>
+          <div className="flex items-center gap-4">
+            {view === 'detail' && (
+              <button onClick={() => setView('dashboard')} className="p-2 hover:bg-slate-100 rounded-full text-slate-500"><ArrowLeft size={20}/></button>
+            )}
+            <h2 className="text-lg font-bold text-slate-800">{view === 'dashboard' ? t.sidebar?.myProjects : activeProject?.title}</h2>
+          </div>
+          <div className="flex items-center gap-3">
+            {view === 'detail' && (
+               <div className="flex bg-slate-100 p-1 rounded-lg">
+                 <button onClick={() => setProjectMode('list')} className={`p-1.5 rounded-md text-xs font-bold flex gap-1 ${projectMode==='list' ? 'bg-white shadow' : 'text-slate-500'}`}><List size={14}/> {t.detail?.list}</button>
+                 <button onClick={() => setProjectMode('blueprint')} className={`p-1.5 rounded-md text-xs font-bold flex gap-1 ${projectMode==='blueprint' ? 'bg-white shadow' : 'text-slate-500'}`}><Network size={14}/> {t.detail?.flow}</button>
+               </div>
+            )}
+            <button onClick={() => setShowAIModal(true)} className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-lg">
+              <Plus size={16} /> {t.dashboard?.newProject}
+            </button>
+          </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50/30">
-          <div className="max-w-6xl mx-auto">
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">{t.dashboard.welcome} {user.displayName}</h1>
-            <p className="text-slate-500 mb-8">{t.dashboard.subtitle}</p>
-
-            {projects.length === 0 ? (
-              <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
-                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400"><Folder size={32}/></div>
-                <p className="text-slate-500 mb-4">{t.dashboard.noProjects}</p>
-                <button onClick={() => setShowCreateModal(true)} className="text-indigo-600 font-bold hover:underline">{t.dashboard.createBtn}</button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in slide-in-from-bottom-4 duration-500">
-                 {/* Create Card */}
-                 <div onClick={() => setShowCreateModal(true)} className="bg-slate-100 rounded-2xl p-6 border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 cursor-pointer hover:border-indigo-400 hover:text-indigo-500 hover:bg-indigo-50 transition-all group min-h-[200px]">
-                    <Plus size={40} className="mb-2 group-hover:scale-110 transition-transform"/>
-                    <span className="font-bold">{t.dashboard.newProject}</span>
+          {view === 'dashboard' && (
+            <div className="max-w-6xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                 {/* AI 卡片 */}
+                 <div onClick={() => setShowAIModal(true)} className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white cursor-pointer hover:shadow-xl transition-all group flex flex-col justify-between">
+                    <div>
+                      <div className="bg-white/20 w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><Sparkles size={24} /></div>
+                      <h3 className="font-bold text-xl mb-2">{t.dashboard?.aiCardTitle}</h3>
+                      <p className="text-indigo-100 text-sm opacity-90">{t.dashboard?.aiCardDesc}</p>
+                    </div>
                  </div>
-
-                 {/* Project Cards */}
+                 {/* 项目列表 */}
                  {projects.map(project => (
-                   <div key={project.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-indigo-100 transition-all flex flex-col justify-between group relative overflow-hidden">
-                     
-                     {/* 状态徽章 */}
-                     <div className="absolute top-0 right-0 p-2">
-                       {project.syncStatus === 'pending' && (
-                         <div className="bg-amber-100 text-amber-700 text-[10px] px-2 py-1 rounded-full font-bold flex items-center gap-1"><HardDrive size={10}/> {t.status.pending}</div>
-                       )}
-                       {project.syncStatus === 'error' && (
-                         <div className="bg-red-100 text-red-700 text-[10px] px-2 py-1 rounded-full font-bold flex items-center gap-1"><AlertTriangle size={10}/> {t.status.error}</div>
-                       )}
-                       {project.syncStatus === 'synced' && (
-                         <div className="bg-emerald-50 text-emerald-600 text-[10px] px-2 py-1 rounded-full font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><CloudLightning size={10}/> {t.status.saved}</div>
-                       )}
-                     </div>
-
+                   <div key={project.id} onClick={() => openProject(project)} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-indigo-100 transition-all flex flex-col justify-between group cursor-pointer">
                      <div>
-                       <div className="flex justify-between items-start mb-4">
-                         <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg"><Workflow size={20}/></div>
-                         <button onClick={(e) => { e.stopPropagation(); handleDelete(project.id); }} className="text-slate-300 hover:text-red-500 p-1 rounded hover:bg-red-50 transition-colors"><Trash2 size={16}/></button>
-                       </div>
                        <h3 className="font-bold text-slate-800 text-lg mb-1">{project.title}</h3>
                        <p className="text-slate-500 text-xs line-clamp-2 mb-4">{project.description}</p>
+                     </div>
+                     <div className="flex justify-between items-center text-xs text-slate-400">
+                        <span>{project.modules?.length || 0} Modules</span>
+                        {project.syncStatus === 'synced' ? <CloudLightning size={14} className="text-emerald-500"/> : <HardDrive size={14} className="text-amber-500"/>}
                      </div>
                    </div>
                  ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {view === 'detail' && activeProject && (
+            <div className="h-full">
+              {projectMode === 'list' ? (
+                 <div className="max-w-4xl mx-auto bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                   <h3 className="font-bold mb-4 flex items-center gap-2"><Folder className="text-indigo-500"/> {t.detail?.blocks}</h3>
+                   <div className="space-y-3">
+                     {activeProject.modules?.map(m => (
+                       <div key={m.id} className="p-4 border rounded-xl flex justify-between items-center bg-slate-50/50">
+                         <span className="font-medium text-slate-700">{m.title}</span>
+                         <span className="text-xs bg-white px-2 py-1 rounded border text-slate-500">{m.timeEstimate}</span>
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+              ) : (
+                 <BlueprintView project={activeProject} />
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Create Modal */}
-        {showCreateModal && (
+        {/* AI Modal */}
+        {showAIModal && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95 duration-200">
-              <h3 className="text-xl font-bold mb-4">{t.modal.createTitle}</h3>
-              <form onSubmit={handleCreateProject}>
-                <div className="mb-4">
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t.modal.nameLabel}</label>
-                  <input 
-                    // 🛡️ 防插件干扰盾
-                    autoComplete="off" spellCheck={false} data-lpignore="true" name="project-name-field"
-                    autoFocus value={newProjectTitle} onChange={e => setNewProjectTitle(e.target.value)} 
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none" required 
-                  />
-                </div>
-                <div className="mb-6">
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t.modal.descLabel}</label>
-                  <textarea 
-                    // 🛡️ 防插件干扰盾
-                    autoComplete="off" spellCheck={false} data-lpignore="true"
-                    value={newProjectDesc} onChange={e => setNewProjectDesc(e.target.value)} 
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 h-20 focus:ring-2 focus:ring-indigo-500 outline-none resize-none" 
-                  />
-                </div>
-                <div className="flex justify-end gap-3">
-                  <button type="button" onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg font-medium">{t.modal.cancel}</button>
-                  <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg font-medium flex items-center gap-2">
-                    {t.modal.create}
-                  </button>
-                </div>
-              </form>
+              <div className="bg-indigo-600 -m-6 mb-6 p-6 text-white rounded-t-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-20"><BrainCircuit size={100} /></div>
+                <h3 className="text-xl font-bold flex items-center gap-2"><Sparkles /> {t.modal?.title}</h3>
+                <p className="text-indigo-100 text-sm mt-1">{t.modal?.desc}</p>
+              </div>
+              <textarea 
+                autoComplete="off" spellCheck={false} data-lpignore="true"
+                value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} 
+                placeholder={t.modal?.placeholder} 
+                className="w-full h-32 border border-slate-200 rounded-xl p-4 text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none resize-none bg-slate-50"
+              />
+              <div className="flex justify-end gap-3 mt-6">
+                <button onClick={() => setShowAIModal(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg font-medium">{t.modal?.cancel}</button>
+                <button onClick={handleAICreate} disabled={!aiPrompt || isGenerating} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg font-medium flex items-center gap-2">
+                  {isGenerating ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                  {t.modal?.generate}
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -408,8 +432,6 @@ export default function App() {
           dbRef.current = getFirestore(appRef.current);
           if (typeof window !== 'undefined' && window.__app_id) appIdRef.current = window.__app_id;
           onAuthStateChanged(authRef.current, (u) => setCurrentUser(u));
-        } else {
-          console.warn("No Firebase Config found, running in pure local mode.");
         }
       } catch (e: any) { console.error("Firebase init error:", e); }
       finally { setIsReady(true); }
