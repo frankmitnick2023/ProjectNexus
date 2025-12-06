@@ -13,7 +13,7 @@ import {
 // 1. 🟢 配置区域
 // ==============================================================================
 const MANUAL_CONFIG = {
-  // ⚠️ 只要这里是空的或错误的，系统就会自动且完美地运行在“本地模式”
+  // ⚠️ 建议填入真实配置以启用云同步。即使为空，本地模式也能完美运行。
   apiKey: "AIzaSyDriBJ3yHf2XnNf5ouXd7S_KZsMu7V4w58", 
   authDomain: "", 
   projectId: "project-nexus-demo", 
@@ -25,7 +25,7 @@ const MANUAL_CONFIG = {
 // ==============================================================================
 // 2. 💾 本地优先引擎
 // ==============================================================================
-const LOCAL_STORAGE_KEY = 'nexus_projects_v3';
+const LOCAL_STORAGE_KEY = 'nexus_projects_v4';
 
 type Project = { 
   id: string; 
@@ -38,7 +38,7 @@ type Project = {
 };
 
 // ==============================================================================
-// 3. 🌍 多语言 (防弹版)
+// 3. 🌍 多语言 (绝对防御版)
 // ==============================================================================
 const TRANSLATIONS = {
   en: {
@@ -57,9 +57,17 @@ const TRANSLATIONS = {
   }
 };
 
-// 安全获取翻译的辅助函数
-const useT = (lang: 'en' | 'zh') => {
-  return TRANSLATIONS[lang] || TRANSLATIONS['en'];
+// 🛡️ 安全获取翻译：即使字典炸了，也能返回英文，保证不白屏
+const useSafeT = (lang: 'en' | 'zh') => {
+  const dict = TRANSLATIONS[lang] || TRANSLATIONS['en'];
+  return {
+    ...dict,
+    sidebar: dict.sidebar || TRANSLATIONS['en'].sidebar, // 双重保险
+    dashboard: dict.dashboard || TRANSLATIONS['en'].dashboard,
+    login: dict.login || TRANSLATIONS['en'].login,
+    modal: dict.modal || TRANSLATIONS['en'].modal,
+    status: dict.status || TRANSLATIONS['en'].status,
+  };
 };
 
 // ==============================================================================
@@ -67,7 +75,7 @@ const useT = (lang: 'en' | 'zh') => {
 // ==============================================================================
 const LoginScreen = ({ onLogin, lang, setLang, isLoggingIn }: any) => {
   const [name, setName] = useState('');
-  const t = useT(lang).login;
+  const t = useSafeT(lang).login;
 
   return (
     <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-6 font-sans">
@@ -84,21 +92,22 @@ const LoginScreen = ({ onLogin, lang, setLang, isLoggingIn }: any) => {
         <form onSubmit={(e) => { e.preventDefault(); onLogin(name); }} className="space-y-4">
           <div>
             <input 
-              // 🛡️ 防插件干扰盾：这些属性可以阻止 LastPass/Chrome 自动填充报错
+              // 🛡️ 防插件干扰盾：彻底禁用自动填充，防止 LastPass 报错
               autoComplete="off" 
               spellCheck={false} 
               data-lpignore="true" 
               data-form-type="other"
+              name="nexus-username-field"
               value={name} 
               onChange={(e) => setName(e.target.value)} 
               placeholder={t.placeholder} 
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none font-medium" 
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-slate-800" 
               required 
             />
           </div>
           <button disabled={isLoggingIn || !name.trim()} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-xl shadow-xl shadow-indigo-200 transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2">
             {isLoggingIn ? <Loader2 className="animate-spin" /> : <LogIn size={20} />}
-            {isLoggingIn ? "Connecting..." : t.btn}
+            {isLoggingIn ? "Loading..." : t.btn}
           </button>
         </form>
       </div>
@@ -118,7 +127,7 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
   const [isCloudConnected, setIsCloudConnected] = useState(false);
 
   // 使用安全翻译
-  const t = useT(lang);
+  const t = useSafeT(lang);
 
   // 🔄 初始化：加载本地数据
   useEffect(() => {
@@ -232,8 +241,7 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
           <div className="bg-indigo-600 p-2.5 rounded-xl shadow-lg shadow-indigo-500/20"><Layout size={22} className="text-white" /></div>
           <div>
             <h1 className="font-bold text-lg tracking-tight">Project Nexus</h1>
-            {/* 🛡️ 安全访问 sidebar.workspace */}
-            <p className="text-[10px] text-indigo-300 font-medium tracking-wider mt-1 opacity-80">{t.sidebar?.workspace || 'WORKSPACE'}</p>
+            <p className="text-[10px] text-indigo-300 font-medium tracking-wider mt-1 opacity-80">{t.sidebar.workspace}</p>
           </div>
         </div>
 
@@ -246,8 +254,8 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
 
         <nav className="flex-1 px-3 space-y-1">
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-indigo-600/10 text-indigo-400 font-medium cursor-pointer">
-            {/* 🛡️ 安全访问 sidebar.myProjects */}
-            <Folder size={18} /> {t.sidebar?.myProjects || 'Projects'}
+            {/* 🛡️ 这里使用了安全翻译对象，再也不会 undefined */}
+            <Folder size={18} /> {t.sidebar.myProjects}
           </div>
         </nav>
 
@@ -259,8 +267,7 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-slate-200 truncate">{user.displayName || 'User'}</div>
               <button onClick={() => signOut(auth!)} className="text-xs text-slate-500 hover:text-red-400 flex items-center gap-1 mt-0.5 transition-colors">
-                {/* 🛡️ 安全访问 sidebar.logout */}
-                <LogOut size={10} /> {t.sidebar?.logout || 'Logout'}
+                <LogOut size={10} /> {t.sidebar.logout}
               </button>
             </div>
             <div className="flex flex-col gap-1">
@@ -274,29 +281,29 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-white relative">
         <header className="h-16 border-b border-slate-100 flex items-center justify-between px-6 bg-white/80 backdrop-blur-md sticky top-0 z-10">
-          <h2 className="text-lg font-bold text-slate-800">{t.sidebar?.myProjects || 'Projects'}</h2>
+          <h2 className="text-lg font-bold text-slate-800">{t.sidebar.myProjects}</h2>
           <button onClick={() => setShowCreateModal(true)} className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 shadow-lg">
-            <Plus size={16} /> {t.dashboard?.newProject || 'New Project'}
+            <Plus size={16} /> {t.dashboard.newProject}
           </button>
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50/30">
           <div className="max-w-6xl mx-auto">
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">{t.dashboard?.welcome} {user.displayName}</h1>
-            <p className="text-slate-500 mb-8">{t.dashboard?.subtitle}</p>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">{t.dashboard.welcome} {user.displayName}</h1>
+            <p className="text-slate-500 mb-8">{t.dashboard.subtitle}</p>
 
             {projects.length === 0 ? (
               <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
                 <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400"><Folder size={32}/></div>
-                <p className="text-slate-500 mb-4">{t.dashboard?.noProjects}</p>
-                <button onClick={() => setShowCreateModal(true)} className="text-indigo-600 font-bold hover:underline">{t.dashboard?.createBtn}</button>
+                <p className="text-slate-500 mb-4">{t.dashboard.noProjects}</p>
+                <button onClick={() => setShowCreateModal(true)} className="text-indigo-600 font-bold hover:underline">{t.dashboard.createBtn}</button>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in slide-in-from-bottom-4 duration-500">
                  {/* Create Card */}
                  <div onClick={() => setShowCreateModal(true)} className="bg-slate-100 rounded-2xl p-6 border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 cursor-pointer hover:border-indigo-400 hover:text-indigo-500 hover:bg-indigo-50 transition-all group min-h-[200px]">
                     <Plus size={40} className="mb-2 group-hover:scale-110 transition-transform"/>
-                    <span className="font-bold">{t.dashboard?.newProject}</span>
+                    <span className="font-bold">{t.dashboard.newProject}</span>
                  </div>
 
                  {/* Project Cards */}
@@ -306,13 +313,13 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
                      {/* 状态徽章 */}
                      <div className="absolute top-0 right-0 p-2">
                        {project.syncStatus === 'pending' && (
-                         <div className="bg-amber-100 text-amber-700 text-[10px] px-2 py-1 rounded-full font-bold flex items-center gap-1"><HardDrive size={10}/> {t.status?.pending}</div>
+                         <div className="bg-amber-100 text-amber-700 text-[10px] px-2 py-1 rounded-full font-bold flex items-center gap-1"><HardDrive size={10}/> {t.status.pending}</div>
                        )}
                        {project.syncStatus === 'error' && (
-                         <div className="bg-red-100 text-red-700 text-[10px] px-2 py-1 rounded-full font-bold flex items-center gap-1"><AlertTriangle size={10}/> {t.status?.error}</div>
+                         <div className="bg-red-100 text-red-700 text-[10px] px-2 py-1 rounded-full font-bold flex items-center gap-1"><AlertTriangle size={10}/> {t.status.error}</div>
                        )}
                        {project.syncStatus === 'synced' && (
-                         <div className="bg-emerald-50 text-emerald-600 text-[10px] px-2 py-1 rounded-full font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><CloudLightning size={10}/> {t.status?.saved}</div>
+                         <div className="bg-emerald-50 text-emerald-600 text-[10px] px-2 py-1 rounded-full font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><CloudLightning size={10}/> {t.status.saved}</div>
                        )}
                      </div>
 
@@ -335,19 +342,19 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
         {showCreateModal && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95 duration-200">
-              <h3 className="text-xl font-bold mb-4">{t.modal?.createTitle}</h3>
+              <h3 className="text-xl font-bold mb-4">{t.modal.createTitle}</h3>
               <form onSubmit={handleCreateProject}>
                 <div className="mb-4">
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t.modal?.nameLabel}</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t.modal.nameLabel}</label>
                   <input 
                     // 🛡️ 防插件干扰盾
-                    autoComplete="off" spellCheck={false} data-lpignore="true"
+                    autoComplete="off" spellCheck={false} data-lpignore="true" name="project-name-field"
                     autoFocus value={newProjectTitle} onChange={e => setNewProjectTitle(e.target.value)} 
                     className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none" required 
                   />
                 </div>
                 <div className="mb-6">
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t.modal?.descLabel}</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t.modal.descLabel}</label>
                   <textarea 
                     // 🛡️ 防插件干扰盾
                     autoComplete="off" spellCheck={false} data-lpignore="true"
@@ -356,9 +363,9 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
                   />
                 </div>
                 <div className="flex justify-end gap-3">
-                  <button type="button" onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg font-medium">{t.modal?.cancel}</button>
+                  <button type="button" onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg font-medium">{t.modal.cancel}</button>
                   <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg font-medium flex items-center gap-2">
-                    {t.modal?.create}
+                    {t.modal.create}
                   </button>
                 </div>
               </form>
