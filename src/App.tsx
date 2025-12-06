@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp, getApps, getApp, FirebaseApp, FirebaseOptions } from 'firebase/app';
 import { getAuth, onAuthStateChanged, signInAnonymously, updateProfile, signOut, Auth, User } from 'firebase/auth';
-import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, query, orderBy, Firestore } from 'firebase/firestore';
+import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, query, orderBy, Firestore, enableIndexedDbPersistence } from 'firebase/firestore';
 import { 
   Layout, Plus, Search, Folder, 
   LogOut, Loader2, Sparkles, 
   Workflow, Trash2, LogIn, UserCircle, 
-  AlertTriangle, CloudLightning, HardDrive,
-  BrainCircuit, Network, List, CheckCircle2, 
-  MoreHorizontal, ChevronRight, Calendar, ArrowLeft, Bell
+  AlertTriangle, Cloud, CheckCircle2, 
+  BrainCircuit, Network, List, MoreHorizontal, Calendar, ArrowLeft, CloudLightning, RefreshCw, HardDrive, Circle
 } from 'lucide-react';
 
 // ==============================================================================
@@ -27,7 +26,7 @@ const MANUAL_CONFIG = {
 // ==============================================================================
 // 2. 💾 数据结构 & 本地引擎
 // ==============================================================================
-const LOCAL_STORAGE_KEY = 'nexus_projects_v5_ultimate';
+const LOCAL_STORAGE_KEY = 'nexus_projects_v7_stable';
 
 type SubTask = { id: string; title: string; isCompleted: boolean; };
 type Module = { id: string; title: string; isCompleted: boolean; timeEstimate: string; subTasks?: SubTask[]; };
@@ -43,7 +42,7 @@ type Project = {
 };
 
 // ==============================================================================
-// 3. 🌍 多语言 (全功能版)
+// 3. 🌍 多语言 (重构版：防崩设计)
 // ==============================================================================
 const TRANSLATIONS = {
   en: {
@@ -64,21 +63,23 @@ const TRANSLATIONS = {
   }
 };
 
-// 🛡️ 绝对防御：防止任何 undefined 报错
+// 🛡️ 核心修复：深度合并翻译对象，确保任何属性都不为 undefined
 const useSafeT = (lang: 'en' | 'zh') => {
-  const dict = TRANSLATIONS[lang] || TRANSLATIONS['en'];
+  const base = TRANSLATIONS['en'];
+  const target = TRANSLATIONS[lang] || base;
+  
   return {
-    login: dict.login || TRANSLATIONS.en.login,
-    sidebar: dict.sidebar || TRANSLATIONS.en.sidebar,
-    dashboard: dict.dashboard || TRANSLATIONS.en.dashboard,
-    detail: dict.detail || TRANSLATIONS.en.detail,
-    modal: dict.modal || TRANSLATIONS.en.modal,
-    status: dict.status || TRANSLATIONS.en.status,
+    login: { ...base.login, ...target.login },
+    sidebar: { ...base.sidebar, ...target.sidebar },
+    dashboard: { ...base.dashboard, ...target.dashboard },
+    detail: { ...base.detail, ...target.detail },
+    modal: { ...base.modal, ...target.modal },
+    status: { ...base.status, ...target.status },
   };
 };
 
 // ==============================================================================
-// 4. 🧩 蓝图视图组件 (Blueprint View) - 恢复功能
+// 4. 🧩 蓝图视图组件 (Blueprint View)
 // ==============================================================================
 const BlueprintView = ({ project }: { project: Project }) => {
   return (
@@ -137,22 +138,27 @@ const LoginScreen = ({ onLogin, lang, setLang, isLoggingIn }: any) => {
              <button onClick={() => setLang('zh')} className={`px-2 py-1 text-xs font-bold rounded ${lang === 'zh' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-400'}`}>中文</button>
            </div>
         </div>
-        <h1 className="text-2xl font-bold text-slate-900 mb-2">{t?.title || "Nexus"}</h1>
-        <p className="text-slate-500 mb-8">{t?.subtitle || "Enter Workspace"}</p>
+        <h1 className="text-2xl font-bold text-slate-900 mb-2">{t.title}</h1>
+        <p className="text-slate-500 mb-8">{t.subtitle}</p>
         <form onSubmit={(e) => { e.preventDefault(); onLogin(name); }} className="space-y-4">
           <div>
             <input 
-              // 🛡️ 防插件报错：禁用自动填充
-              autoComplete="off" spellCheck={false} data-lpignore="true" data-form-type="other"
-              value={name} onChange={(e) => setName(e.target.value)} 
-              placeholder={t?.placeholder || "Name"} 
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none font-medium" 
+              // 🛡️ 防插件干扰盾：彻底禁用自动填充
+              autoComplete="off" 
+              spellCheck={false} 
+              data-lpignore="true" 
+              data-form-type="other"
+              name="nexus-user-input"
+              value={name} 
+              onChange={(e) => setName(e.target.value)} 
+              placeholder={t.placeholder} 
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-slate-800" 
               required 
             />
           </div>
           <button disabled={isLoggingIn || !name.trim()} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-xl shadow-xl shadow-indigo-200 transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2">
             {isLoggingIn ? <Loader2 className="animate-spin" /> : <LogIn size={20} />}
-            {isLoggingIn ? "Connecting..." : t?.btn || "Enter"}
+            {isLoggingIn ? "Loading..." : t.btn}
           </button>
         </form>
       </div>
@@ -165,19 +171,26 @@ const LoginScreen = ({ onLogin, lang, setLang, isLoggingIn }: any) => {
 // ==============================================================================
 const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | null, auth: Auth | null, appId: string }) => {
   const [lang, setLang] = useState<'en' | 'zh'>('zh'); 
-  const [view, setView] = useState<'dashboard' | 'detail'>('dashboard'); // 视图状态
-  const [projectMode, setProjectMode] = useState<'list' | 'blueprint'>('list'); // 详情模式
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newProjectTitle, setNewProjectTitle] = useState('');
+  const [newProjectDesc, setNewProjectDesc] = useState('');
+  
+  // 状态管理
+  const [view, setView] = useState<'dashboard' | 'detail'>('dashboard');
+  const [projectMode, setProjectMode] = useState<'list' | 'blueprint'>('list');
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   
-  const [projects, setProjects] = useState<Project[]>([]);
+  // AI 相关
   const [showAIModal, setShowAIModal] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCloudConnected, setIsCloudConnected] = useState(false);
 
+  // 使用安全翻译
   const t = useSafeT(lang);
 
-  // 🔄 加载本地数据
+  // 🔄 初始化：加载本地数据
   useEffect(() => {
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (saved) {
@@ -185,26 +198,34 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
         const parsed = JSON.parse(saved);
         parsed.sort((a: any, b: any) => b.createdAt - a.createdAt);
         setProjects(parsed);
-      } catch (e) {}
+      } catch (e) { console.error("Local storage error", e); }
     }
   }, []);
 
-  // 🔄 云端同步 (后台)
+  // 🔄 监听云端 (后台合并)
   useEffect(() => {
     if (!user || !db) return;
     const q = query(collection(db, 'artifacts', appId, 'users', user.uid, 'projects'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setIsCloudConnected(true);
-      const cloudProjects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), syncStatus: 'synced' })) as Project[];
-      setProjects(prev => {
+      const cloudProjects = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        syncStatus: 'synced'
+      })) as Project[];
+
+      setProjects(prevLocal => {
         const cloudIds = new Set(cloudProjects.map(p => p.id));
-        const pendingLocal = prev.filter(p => !cloudIds.has(p.id));
+        const pendingLocal = prevLocal.filter(p => !cloudIds.has(p.id));
         const merged = [...pendingLocal, ...cloudProjects];
         merged.sort((a, b) => b.createdAt - a.createdAt);
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));
         return merged;
       });
-    }, () => setIsCloudConnected(false));
+    }, (error) => {
+      console.warn("Cloud sync paused:", error);
+      setIsCloudConnected(false);
+    });
     return () => unsubscribe();
   }, [user, db, appId]);
 
@@ -218,7 +239,7 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
 
     const newProject: Project = {
       id: `local-${Date.now()}`,
-      title: "AI: " + aiPrompt.slice(0, 10) + "...", // 简单取名
+      title: "AI: " + aiPrompt.slice(0, 10) + "...", 
       description: aiPrompt,
       progress: 0,
       createdAt: Date.now(),
@@ -255,6 +276,41 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
     }
   };
 
+  const handleCreateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProjectTitle.trim()) return;
+    
+    const newProject: Project = {
+      id: `local-${Date.now()}`,
+      title: newProjectTitle,
+      description: newProjectDesc || '',
+      progress: 0,
+      createdAt: Date.now(),
+      syncStatus: 'pending',
+      modules: [
+        { id: 'm1', title: 'Step 1: Setup', isCompleted: false, timeEstimate: '1h' },
+        { id: 'm2', title: 'Step 2: Build', isCompleted: false, timeEstimate: '4h' }
+      ]
+    };
+
+    saveProject(newProject);
+    setShowCreateModal(false);
+    setNewProjectTitle('');
+    setNewProjectDesc('');
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete?")) return;
+    const updated = projects.filter(p => p.id !== id);
+    setProjects(updated);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+
+    if (db && user && !id.startsWith('local-')) {
+      try { await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'projects', id)); } 
+      catch (e) { console.error(e); }
+    }
+  };
+
   const openProject = (p: Project) => {
     setActiveProject(p);
     setView('detail');
@@ -267,22 +323,22 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
       <div className="w-72 bg-[#0F172A] text-slate-400 flex flex-col h-full border-r border-slate-800 flex-shrink-0 hidden md:flex">
         <div className="p-6 flex items-center gap-3 text-white">
           <div className="bg-indigo-600 p-2.5 rounded-xl shadow-lg shadow-indigo-500/20"><Layout size={22} className="text-white" /></div>
-          <div><h1 className="font-bold text-lg tracking-tight">Project Nexus</h1><p className="text-[10px] text-indigo-300 font-medium tracking-wider mt-1 opacity-80">{t.sidebar?.workspace}</p></div>
+          <div><h1 className="font-bold text-lg tracking-tight">Project Nexus</h1><p className="text-[10px] text-indigo-300 font-medium tracking-wider mt-1 opacity-80">{t.sidebar.workspace}</p></div>
         </div>
         
         <div className="px-5 mb-6">
            <div className={`flex items-center gap-2 p-3 rounded-xl text-xs font-bold transition-colors ${isCloudConnected ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}`}>
               {isCloudConnected ? <CloudLightning size={14} /> : <HardDrive size={14} />}
-              {isCloudConnected ? t.status?.saved : t.status?.pending}
+              {isCloudConnected ? t.status.saved : t.status.pending}
            </div>
         </div>
 
         <nav className="flex-1 px-3 space-y-1">
           <div onClick={() => setView('dashboard')} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${view === 'dashboard' ? 'bg-indigo-600/10 text-indigo-400' : 'hover:bg-slate-800/50'}`}>
-            <Folder size={18} /> {t.sidebar?.myProjects}
+            <Folder size={18} /> {t.sidebar.myProjects}
           </div>
           <div onClick={() => setShowAIModal(true)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-800/50 cursor-pointer">
-            <BrainCircuit size={18} /> {t.sidebar?.ai}
+            <BrainCircuit size={18} /> {t.sidebar.ai}
           </div>
         </nav>
 
@@ -306,17 +362,17 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
             {view === 'detail' && (
               <button onClick={() => setView('dashboard')} className="p-2 hover:bg-slate-100 rounded-full text-slate-500"><ArrowLeft size={20}/></button>
             )}
-            <h2 className="text-lg font-bold text-slate-800">{view === 'dashboard' ? t.sidebar?.myProjects : activeProject?.title}</h2>
+            <h2 className="text-lg font-bold text-slate-800">{view === 'dashboard' ? t.sidebar.myProjects : activeProject?.title}</h2>
           </div>
           <div className="flex items-center gap-3">
             {view === 'detail' && (
                <div className="flex bg-slate-100 p-1 rounded-lg">
-                 <button onClick={() => setProjectMode('list')} className={`p-1.5 rounded-md text-xs font-bold flex gap-1 ${projectMode==='list' ? 'bg-white shadow' : 'text-slate-500'}`}><List size={14}/> {t.detail?.list}</button>
-                 <button onClick={() => setProjectMode('blueprint')} className={`p-1.5 rounded-md text-xs font-bold flex gap-1 ${projectMode==='blueprint' ? 'bg-white shadow' : 'text-slate-500'}`}><Network size={14}/> {t.detail?.flow}</button>
+                 <button onClick={() => setProjectMode('list')} className={`p-1.5 rounded-md text-xs font-bold flex gap-1 ${projectMode==='list' ? 'bg-white shadow' : 'text-slate-500'}`}><List size={14}/> {t.detail.list}</button>
+                 <button onClick={() => setProjectMode('blueprint')} className={`p-1.5 rounded-md text-xs font-bold flex gap-1 ${projectMode==='blueprint' ? 'bg-white shadow' : 'text-slate-500'}`}><Network size={14}/> {t.detail.flow}</button>
                </div>
             )}
-            <button onClick={() => setShowAIModal(true)} className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-lg">
-              <Plus size={16} /> {t.dashboard?.newProject}
+            <button onClick={() => setShowCreateModal(true)} className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-lg">
+              <Plus size={16} /> {t.dashboard.newProject}
             </button>
           </div>
         </header>
@@ -325,24 +381,27 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
           {view === 'dashboard' && (
             <div className="max-w-6xl mx-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                 {/* AI 卡片 */}
+                 {/* AI Card */}
                  <div onClick={() => setShowAIModal(true)} className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white cursor-pointer hover:shadow-xl transition-all group flex flex-col justify-between">
                     <div>
                       <div className="bg-white/20 w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><Sparkles size={24} /></div>
-                      <h3 className="font-bold text-xl mb-2">{t.dashboard?.aiCardTitle}</h3>
-                      <p className="text-indigo-100 text-sm opacity-90">{t.dashboard?.aiCardDesc}</p>
+                      <h3 className="font-bold text-xl mb-2">{t.dashboard.aiCardTitle}</h3>
+                      <p className="text-indigo-100 text-sm opacity-90">{t.dashboard.aiCardDesc}</p>
                     </div>
                  </div>
-                 {/* 项目列表 */}
+                 {/* Projects */}
                  {projects.map(project => (
-                   <div key={project.id} onClick={() => openProject(project)} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-indigo-100 transition-all flex flex-col justify-between group cursor-pointer">
+                   <div key={project.id} onClick={() => openProject(project)} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-indigo-100 transition-all flex flex-col justify-between group cursor-pointer relative overflow-hidden">
+                     {project.syncStatus === 'syncing' && (
+                       <div className="absolute top-0 right-0 p-2"><RefreshCw size={12} className="text-amber-500 animate-spin"/></div>
+                     )}
                      <div>
                        <h3 className="font-bold text-slate-800 text-lg mb-1">{project.title}</h3>
                        <p className="text-slate-500 text-xs line-clamp-2 mb-4">{project.description}</p>
                      </div>
                      <div className="flex justify-between items-center text-xs text-slate-400">
                         <span>{project.modules?.length || 0} Modules</span>
-                        {project.syncStatus === 'synced' ? <CloudLightning size={14} className="text-emerald-500"/> : <HardDrive size={14} className="text-amber-500"/>}
+                        <div onClick={(e) => { e.stopPropagation(); handleDelete(project.id); }} className="hover:text-red-500 p-1"><Trash2 size={14}/></div>
                      </div>
                    </div>
                  ))}
@@ -354,11 +413,14 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
             <div className="h-full">
               {projectMode === 'list' ? (
                  <div className="max-w-4xl mx-auto bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                   <h3 className="font-bold mb-4 flex items-center gap-2"><Folder className="text-indigo-500"/> {t.detail?.blocks}</h3>
+                   <h3 className="font-bold mb-4 flex items-center gap-2"><Folder className="text-indigo-500"/> {t.detail.blocks}</h3>
                    <div className="space-y-3">
                      {activeProject.modules?.map(m => (
                        <div key={m.id} className="p-4 border rounded-xl flex justify-between items-center bg-slate-50/50">
-                         <span className="font-medium text-slate-700">{m.title}</span>
+                         <div className="flex items-center gap-3">
+                           {m.isCompleted ? <CheckCircle2 className="text-green-500" size={18}/> : <Circle className="text-slate-300" size={18}/>}
+                           <span className="font-medium text-slate-700">{m.title}</span>
+                         </div>
                          <span className="text-xs bg-white px-2 py-1 rounded border text-slate-500">{m.timeEstimate}</span>
                        </div>
                      ))}
@@ -371,26 +433,50 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
           )}
         </div>
 
+        {/* Create Modal */}
+        {showCreateModal && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95 duration-200">
+              <h3 className="text-xl font-bold mb-4">{t.modal.title}</h3>
+              <form onSubmit={handleCreateProject}>
+                <input 
+                  autoComplete="off" spellCheck={false} data-lpignore="true" 
+                  autoFocus value={newProjectTitle} onChange={e => setNewProjectTitle(e.target.value)} 
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 mb-4 outline-none focus:ring-2 focus:ring-indigo-500" placeholder={t.modal.nameLabel} required 
+                />
+                <textarea 
+                  autoComplete="off" spellCheck={false} data-lpignore="true"
+                  value={newProjectDesc} onChange={e => setNewProjectDesc(e.target.value)} 
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 h-20 mb-6 outline-none focus:ring-2 focus:ring-indigo-500" placeholder={t.modal.descLabel} 
+                />
+                <div className="flex justify-end gap-3">
+                  <button type="button" onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg">{t.modal.cancel}</button>
+                  <button type="submit" disabled={isCreating} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg flex items-center gap-2">
+                    {isCreating ? <Loader2 className="animate-spin" size={16}/> : <CloudLightning size={16}/>} {t.modal.create}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* AI Modal */}
         {showAIModal && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95 duration-200">
               <div className="bg-indigo-600 -m-6 mb-6 p-6 text-white rounded-t-2xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-20"><BrainCircuit size={100} /></div>
-                <h3 className="text-xl font-bold flex items-center gap-2"><Sparkles /> {t.modal?.title}</h3>
-                <p className="text-indigo-100 text-sm mt-1">{t.modal?.desc}</p>
+                <h3 className="text-xl font-bold flex items-center gap-2"><Sparkles /> {t.modal.title}</h3>
               </div>
               <textarea 
                 autoComplete="off" spellCheck={false} data-lpignore="true"
                 value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} 
-                placeholder={t.modal?.placeholder} 
-                className="w-full h-32 border border-slate-200 rounded-xl p-4 text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none resize-none bg-slate-50"
+                className="w-full h-32 border border-slate-200 rounded-xl p-4 focus:ring-2 focus:ring-indigo-500 outline-none resize-none" placeholder={t.modal.desc} 
               />
               <div className="flex justify-end gap-3 mt-6">
-                <button onClick={() => setShowAIModal(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg font-medium">{t.modal?.cancel}</button>
-                <button onClick={handleAICreate} disabled={!aiPrompt || isGenerating} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg font-medium flex items-center gap-2">
-                  {isGenerating ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-                  {t.modal?.generate}
+                <button onClick={() => setShowAIModal(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg">{t.modal.cancel}</button>
+                <button onClick={handleAICreate} disabled={!aiPrompt || isGenerating} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg flex items-center gap-2">
+                  {isGenerating ? <Loader2 className="animate-spin" size={16}/> : <Sparkles size={16}/>} {t.modal.generate}
                 </button>
               </div>
             </div>
@@ -431,9 +517,12 @@ export default function App() {
           authRef.current = getAuth(appRef.current);
           dbRef.current = getFirestore(appRef.current);
           if (typeof window !== 'undefined' && window.__app_id) appIdRef.current = window.__app_id;
+          
+          try { await enableIndexedDbPersistence(dbRef.current); } catch (e) {}
+
           onAuthStateChanged(authRef.current, (u) => setCurrentUser(u));
         }
-      } catch (e: any) { console.error("Firebase init error:", e); }
+      } catch (e: any) { console.error("Init Error:", e); }
       finally { setIsReady(true); }
     };
     init();
@@ -446,18 +535,17 @@ export default function App() {
         const userCredential = await signInAnonymously(authRef.current);
         await updateProfile(userCredential.user, { displayName: username });
       } catch (e) {
-        console.warn("Firebase login failed, falling back to local user");
-        setCurrentUser({ uid: 'local-user', displayName: username } as User);
+        // Fallback local user
+        setCurrentUser({ uid: 'local', displayName: username } as User);
       }
     } else {
-      setCurrentUser({ uid: 'local-user', displayName: username } as User);
+      setCurrentUser({ uid: 'local', displayName: username } as User);
     }
     setIsLoggingIn(false);
   };
 
   if (!isReady) return <div className="min-h-screen flex items-center justify-center bg-[#0F172A]"><Loader2 className="animate-spin text-indigo-500 w-8 h-8" /></div>;
-
   if (!currentUser) return <LoginScreen onLogin={handleLogin} lang={loginLang} setLang={setLoginLang} isLoggingIn={isLoggingIn} />;
   
-  return <MainContent user={currentUser} db={dbRef.current} auth={authRef.current} appId={appIdRef.current} />;
+  return <MainContent user={currentUser} db={dbRef.current!} auth={authRef.current!} appId={appIdRef.current} />;
 }
