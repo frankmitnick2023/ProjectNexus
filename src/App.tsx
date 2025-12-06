@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp, getApps, getApp, FirebaseApp, FirebaseOptions } from 'firebase/app';
 import { getAuth, onAuthStateChanged, signInAnonymously, updateProfile, signOut, Auth, User } from 'firebase/auth';
-import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, query, orderBy, Firestore, enableIndexedDbPersistence } from 'firebase/firestore';
+import { 
+  getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, 
+  serverTimestamp, query, orderBy, Firestore, enableIndexedDbPersistence 
+} from 'firebase/firestore';
 import { 
   Layout, Plus, Search, Folder, 
   LogOut, Loader2, Sparkles, 
@@ -11,7 +14,7 @@ import {
 } from 'lucide-react';
 
 // ==============================================================================
-// 1. 🟢 配置区域
+// 1. 🟢 配置区域 (引擎核心)
 // ==============================================================================
 const MANUAL_CONFIG = {
   // ⚠️ 建议填入真实配置以启用云同步。即使为空，本地模式也能完美运行。
@@ -26,7 +29,7 @@ const MANUAL_CONFIG = {
 // ==============================================================================
 // 2. 💾 数据结构 & 本地引擎
 // ==============================================================================
-const LOCAL_STORAGE_KEY = 'nexus_projects_v7_stable';
+const LOCAL_STORAGE_KEY = 'nexus_projects_v8_titan';
 
 type SubTask = { id: string; title: string; isCompleted: boolean; };
 type Module = { id: string; title: string; isCompleted: boolean; timeEstimate: string; subTasks?: SubTask[]; };
@@ -42,7 +45,7 @@ type Project = {
 };
 
 // ==============================================================================
-// 3. 🌍 多语言 (重构版：防崩设计)
+// 3. 🌍 多语言 (绝对防御版)
 // ==============================================================================
 const TRANSLATIONS = {
   en: {
@@ -50,16 +53,16 @@ const TRANSLATIONS = {
     sidebar: { workspace: "WORKSPACE", myProjects: "My Projects", team: "Team", ai: "AI Studio", settings: "Settings", logout: "Log Out" },
     dashboard: { welcome: "Welcome,", subtitle: "Your creative command center.", newProject: "New Project", noProjects: "No projects. Create one!", createBtn: "Create", aiCardTitle: "AI Planner", aiCardDesc: "Turn ideas into blueprints." },
     detail: { overview: "Overview", blocks: "Task Blocks", addBlock: "Add Module", flow: "Blueprint View", list: "List View" },
-    modal: { title: "AI Project Planner", desc: "Describe your idea, AI will break it down.", placeholder: "E.g. A fitness app with social features...", cancel: "Cancel", generate: "Generate Project" },
-    status: { saved: "Cloud Synced", pending: "Local Only", error: "Sync Failed" }
+    modal: { title: "AI Project Planner", desc: "Describe your idea, AI will break it down.", placeholder: "E.g. A fitness app with social features...", cancel: "Cancel", generate: "Generate Project", nameLabel: "Name", descLabel: "Description", create: "Create" },
+    status: { saved: "Cloud Synced", pending: "Local Only", error: "Sync Failed", connected: "Connected", disconnected: "Offline", permission: "Permission Denied" }
   },
   zh: {
     login: { title: "Nexus 工作台", subtitle: "本地优先架构 + AI 赋能", placeholder: "你的昵称", btn: "进入工作区" },
     sidebar: { workspace: "工作区", myProjects: "我的项目库", team: "团队协作", ai: "AI 创意工坊", settings: "设置", logout: "退出登录" },
     dashboard: { welcome: "欢迎回来，", subtitle: "你的创意指挥中心。", newProject: "新建项目", noProjects: "暂无项目。创建你的第一个作品！", createBtn: "立即创建", aiCardTitle: "AI 规划师", aiCardDesc: "一键将想法转化为蓝图。" },
     detail: { overview: "概览", blocks: "任务积木", addBlock: "添加模块", flow: "蓝图视图", list: "列表视图" },
-    modal: { title: "AI 项目规划师", desc: "描述你的想法，AI 帮你拆解为可执行积木。", placeholder: "例如：做一个带有社交功能的健身 App...", cancel: "取消", generate: "生成项目架构" },
-    status: { saved: "已同步云端", pending: "仅本地保存", error: "同步失败" }
+    modal: { title: "AI 项目规划师", desc: "描述你的想法，AI 帮你拆解为可执行积木。", placeholder: "例如：做一个带有社交功能的健身 App...", cancel: "取消", generate: "生成项目架构", nameLabel: "项目名称", descLabel: "项目简介", create: "确认创建" },
+    status: { saved: "已同步云端", pending: "仅本地保存", error: "同步失败", connected: "云端已连接", disconnected: "网络已断开", permission: "权限被拒绝 (请检查Rules)" }
   }
 };
 
@@ -138,27 +141,27 @@ const LoginScreen = ({ onLogin, lang, setLang, isLoggingIn }: any) => {
              <button onClick={() => setLang('zh')} className={`px-2 py-1 text-xs font-bold rounded ${lang === 'zh' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-400'}`}>中文</button>
            </div>
         </div>
-        <h1 className="text-2xl font-bold text-slate-900 mb-2">{t.title}</h1>
-        <p className="text-slate-500 mb-8">{t.subtitle}</p>
+        <h1 className="text-2xl font-bold text-slate-900 mb-2">{t?.title}</h1>
+        <p className="text-slate-500 mb-8">{t?.subtitle}</p>
         <form onSubmit={(e) => { e.preventDefault(); onLogin(name); }} className="space-y-4">
           <div>
             <input 
-              // 🛡️ 防插件干扰盾：彻底禁用自动填充
+              // 🛡️ 防插件干扰盾
               autoComplete="off" 
               spellCheck={false} 
               data-lpignore="true" 
               data-form-type="other"
-              name="nexus-user-input"
+              name="nexus-username-field"
               value={name} 
               onChange={(e) => setName(e.target.value)} 
-              placeholder={t.placeholder} 
+              placeholder={t?.placeholder} 
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-slate-800" 
               required 
             />
           </div>
           <button disabled={isLoggingIn || !name.trim()} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-xl shadow-xl shadow-indigo-200 transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2">
             {isLoggingIn ? <Loader2 className="animate-spin" /> : <LogIn size={20} />}
-            {isLoggingIn ? "Loading..." : t.btn}
+            {isLoggingIn ? "Loading..." : t?.btn}
           </button>
         </form>
       </div>
@@ -185,7 +188,10 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
   const [showAIModal, setShowAIModal] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isCloudConnected, setIsCloudConnected] = useState(false);
+  
+  // 网络状态
+  const [networkStatus, setNetworkStatus] = useState<'connected' | 'disconnected' | 'permission-denied'>('connected');
+  const [isCreating, setIsCreating] = useState(false);
 
   // 使用安全翻译
   const t = useSafeT(lang);
@@ -207,11 +213,11 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
     if (!user || !db) return;
     const q = query(collection(db, 'artifacts', appId, 'users', user.uid, 'projects'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setIsCloudConnected(true);
+      setNetworkStatus('connected');
       const cloudProjects = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-        syncStatus: 'synced'
+        syncStatus: doc.metadata.hasPendingWrites ? 'pending' : 'synced'
       })) as Project[];
 
       setProjects(prevLocal => {
@@ -224,12 +230,13 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
       });
     }, (error) => {
       console.warn("Cloud sync paused:", error);
-      setIsCloudConnected(false);
+      if (error.code === 'permission-denied') setNetworkStatus('permission-denied');
+      else setNetworkStatus('disconnected');
     });
     return () => unsubscribe();
   }, [user, db, appId]);
 
-  // 🟢 AI 创建项目 (模拟)
+  // 🟢 AI 创建项目
   const handleAICreate = async () => {
     if (!aiPrompt.trim()) return;
     setIsGenerating(true);
@@ -323,22 +330,27 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
       <div className="w-72 bg-[#0F172A] text-slate-400 flex flex-col h-full border-r border-slate-800 flex-shrink-0 hidden md:flex">
         <div className="p-6 flex items-center gap-3 text-white">
           <div className="bg-indigo-600 p-2.5 rounded-xl shadow-lg shadow-indigo-500/20"><Layout size={22} className="text-white" /></div>
-          <div><h1 className="font-bold text-lg tracking-tight">Project Nexus</h1><p className="text-[10px] text-indigo-300 font-medium tracking-wider mt-1 opacity-80">{t.sidebar.workspace}</p></div>
+          <div><h1 className="font-bold text-lg tracking-tight">Project Nexus</h1><p className="text-[10px] text-indigo-300 font-medium tracking-wider mt-1 opacity-80">{t.sidebar?.workspace}</p></div>
         </div>
         
         <div className="px-5 mb-6">
-           <div className={`flex items-center gap-2 p-3 rounded-xl text-xs font-bold transition-colors ${isCloudConnected ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}`}>
-              {isCloudConnected ? <CloudLightning size={14} /> : <HardDrive size={14} />}
-              {isCloudConnected ? t.status.saved : t.status.pending}
+           <div className={`flex items-center gap-2 p-3 rounded-xl text-xs font-bold transition-colors border ${
+             networkStatus === 'connected' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
+             networkStatus === 'permission-denied' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+             'bg-amber-500/10 text-amber-400 border-amber-500/20'
+           }`}>
+              {networkStatus === 'connected' ? <CloudLightning size={14} /> : <AlertTriangle size={14} />}
+              {networkStatus === 'connected' ? t.status?.connected : 
+               networkStatus === 'permission-denied' ? t.status?.permission : t.status?.disconnected}
            </div>
         </div>
 
         <nav className="flex-1 px-3 space-y-1">
           <div onClick={() => setView('dashboard')} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${view === 'dashboard' ? 'bg-indigo-600/10 text-indigo-400' : 'hover:bg-slate-800/50'}`}>
-            <Folder size={18} /> {t.sidebar.myProjects}
+            <Folder size={18} /> {t.sidebar?.myProjects}
           </div>
           <div onClick={() => setShowAIModal(true)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-800/50 cursor-pointer">
-            <BrainCircuit size={18} /> {t.sidebar.ai}
+            <BrainCircuit size={18} /> {t.sidebar?.ai}
           </div>
         </nav>
 
@@ -362,22 +374,35 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
             {view === 'detail' && (
               <button onClick={() => setView('dashboard')} className="p-2 hover:bg-slate-100 rounded-full text-slate-500"><ArrowLeft size={20}/></button>
             )}
-            <h2 className="text-lg font-bold text-slate-800">{view === 'dashboard' ? t.sidebar.myProjects : activeProject?.title}</h2>
+            {/* 🛡️ 修复：这里加了问号，防止白屏 */}
+            <h2 className="text-lg font-bold text-slate-800">{view === 'dashboard' ? t.sidebar?.myProjects : activeProject?.title}</h2>
           </div>
           <div className="flex items-center gap-3">
             {view === 'detail' && (
                <div className="flex bg-slate-100 p-1 rounded-lg">
-                 <button onClick={() => setProjectMode('list')} className={`p-1.5 rounded-md text-xs font-bold flex gap-1 ${projectMode==='list' ? 'bg-white shadow' : 'text-slate-500'}`}><List size={14}/> {t.detail.list}</button>
-                 <button onClick={() => setProjectMode('blueprint')} className={`p-1.5 rounded-md text-xs font-bold flex gap-1 ${projectMode==='blueprint' ? 'bg-white shadow' : 'text-slate-500'}`}><Network size={14}/> {t.detail.flow}</button>
+                 <button onClick={() => setProjectMode('list')} className={`p-1.5 rounded-md text-xs font-bold flex gap-1 ${projectMode==='list' ? 'bg-white shadow' : 'text-slate-500'}`}><List size={14}/> {t.detail?.list}</button>
+                 <button onClick={() => setProjectMode('blueprint')} className={`p-1.5 rounded-md text-xs font-bold flex gap-1 ${projectMode==='blueprint' ? 'bg-white shadow' : 'text-slate-500'}`}><Network size={14}/> {t.detail?.flow}</button>
                </div>
             )}
             <button onClick={() => setShowCreateModal(true)} className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-lg">
-              <Plus size={16} /> {t.dashboard.newProject}
+              <Plus size={16} /> {t.dashboard?.newProject}
             </button>
           </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50/30">
+          
+          {/* 🛡️ 修复：替换箭头 -> 为 '到'，修复编译错误 */}
+          {networkStatus === 'permission-denied' && (
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 animate-in slide-in-from-top-2">
+              <AlertTriangle className="text-red-500 shrink-0" />
+              <div>
+                 <h3 className="font-bold text-red-800">数据库权限被拒绝</h3>
+                 <p className="text-sm text-red-600 mt-1">请去 Firebase 控制台 到 Firestore Database 到 Rules，将规则改为 <code>allow read, write: if true;</code></p>
+              </div>
+            </div>
+          )}
+
           {view === 'dashboard' && (
             <div className="max-w-6xl mx-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -385,15 +410,15 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
                  <div onClick={() => setShowAIModal(true)} className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white cursor-pointer hover:shadow-xl transition-all group flex flex-col justify-between">
                     <div>
                       <div className="bg-white/20 w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><Sparkles size={24} /></div>
-                      <h3 className="font-bold text-xl mb-2">{t.dashboard.aiCardTitle}</h3>
-                      <p className="text-indigo-100 text-sm opacity-90">{t.dashboard.aiCardDesc}</p>
+                      <h3 className="font-bold text-xl mb-2">{t.dashboard?.aiCardTitle}</h3>
+                      <p className="text-indigo-100 text-sm opacity-90">{t.dashboard?.aiCardDesc}</p>
                     </div>
                  </div>
                  {/* Projects */}
                  {projects.map(project => (
                    <div key={project.id} onClick={() => openProject(project)} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-indigo-100 transition-all flex flex-col justify-between group cursor-pointer relative overflow-hidden">
-                     {project.syncStatus === 'syncing' && (
-                       <div className="absolute top-0 right-0 p-2"><RefreshCw size={12} className="text-amber-500 animate-spin"/></div>
+                     {project.syncStatus === 'pending' && (
+                       <div className="absolute top-0 right-0 p-2"><HardDrive size={12} className="text-amber-500"/></div>
                      )}
                      <div>
                        <h3 className="font-bold text-slate-800 text-lg mb-1">{project.title}</h3>
@@ -413,7 +438,7 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
             <div className="h-full">
               {projectMode === 'list' ? (
                  <div className="max-w-4xl mx-auto bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                   <h3 className="font-bold mb-4 flex items-center gap-2"><Folder className="text-indigo-500"/> {t.detail.blocks}</h3>
+                   <h3 className="font-bold mb-4 flex items-center gap-2"><Folder className="text-indigo-500"/> {t.detail?.blocks}</h3>
                    <div className="space-y-3">
                      {activeProject.modules?.map(m => (
                        <div key={m.id} className="p-4 border rounded-xl flex justify-between items-center bg-slate-50/50">
@@ -437,22 +462,28 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
         {showCreateModal && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95 duration-200">
-              <h3 className="text-xl font-bold mb-4">{t.modal.title}</h3>
+              <h3 className="text-xl font-bold mb-4">{t.modal?.createTitle}</h3>
               <form onSubmit={handleCreateProject}>
-                <input 
-                  autoComplete="off" spellCheck={false} data-lpignore="true" 
-                  autoFocus value={newProjectTitle} onChange={e => setNewProjectTitle(e.target.value)} 
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 mb-4 outline-none focus:ring-2 focus:ring-indigo-500" placeholder={t.modal.nameLabel} required 
-                />
-                <textarea 
-                  autoComplete="off" spellCheck={false} data-lpignore="true"
-                  value={newProjectDesc} onChange={e => setNewProjectDesc(e.target.value)} 
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 h-20 mb-6 outline-none focus:ring-2 focus:ring-indigo-500" placeholder={t.modal.descLabel} 
-                />
+                <div className="mb-4">
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t.modal?.nameLabel}</label>
+                  <input 
+                    autoComplete="off" spellCheck={false} data-lpignore="true" 
+                    autoFocus value={newProjectTitle} onChange={e => setNewProjectTitle(e.target.value)} 
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none" required 
+                  />
+                </div>
+                <div className="mb-6">
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t.modal?.descLabel}</label>
+                  <textarea 
+                    autoComplete="off" spellCheck={false} data-lpignore="true"
+                    value={newProjectDesc} onChange={e => setNewProjectDesc(e.target.value)} 
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 h-20 focus:ring-2 focus:ring-indigo-500 outline-none resize-none" 
+                  />
+                </div>
                 <div className="flex justify-end gap-3">
-                  <button type="button" onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg">{t.modal.cancel}</button>
+                  <button type="button" onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg">{t.modal?.cancel}</button>
                   <button type="submit" disabled={isCreating} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg flex items-center gap-2">
-                    {isCreating ? <Loader2 className="animate-spin" size={16}/> : <CloudLightning size={16}/>} {t.modal.create}
+                    {isCreating ? <Loader2 className="animate-spin" size={16}/> : <CloudLightning size={16}/>} {t.modal?.create}
                   </button>
                 </div>
               </form>
@@ -466,17 +497,17 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95 duration-200">
               <div className="bg-indigo-600 -m-6 mb-6 p-6 text-white rounded-t-2xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-20"><BrainCircuit size={100} /></div>
-                <h3 className="text-xl font-bold flex items-center gap-2"><Sparkles /> {t.modal.title}</h3>
+                <h3 className="text-xl font-bold flex items-center gap-2"><Sparkles /> {t.modal?.title}</h3>
               </div>
               <textarea 
                 autoComplete="off" spellCheck={false} data-lpignore="true"
                 value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} 
-                className="w-full h-32 border border-slate-200 rounded-xl p-4 focus:ring-2 focus:ring-indigo-500 outline-none resize-none" placeholder={t.modal.desc} 
+                className="w-full h-32 border border-slate-200 rounded-xl p-4 focus:ring-2 focus:ring-indigo-500 outline-none resize-none" placeholder={t.modal?.desc} 
               />
               <div className="flex justify-end gap-3 mt-6">
-                <button onClick={() => setShowAIModal(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg">{t.modal.cancel}</button>
+                <button onClick={() => setShowAIModal(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg">{t.modal?.cancel}</button>
                 <button onClick={handleAICreate} disabled={!aiPrompt || isGenerating} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg flex items-center gap-2">
-                  {isGenerating ? <Loader2 className="animate-spin" size={16}/> : <Sparkles size={16}/>} {t.modal.generate}
+                  {isGenerating ? <Loader2 className="animate-spin" size={16}/> : <Sparkles size={16}/>} {t.modal?.generate}
                 </button>
               </div>
             </div>
