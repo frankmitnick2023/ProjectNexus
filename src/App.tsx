@@ -11,7 +11,7 @@ import {
   Workflow, Trash2, LogIn, UserCircle, 
   AlertTriangle, Cloud, CheckCircle2, 
   BrainCircuit, Network, List, MoreHorizontal, Calendar, ArrowLeft, CloudLightning, RefreshCw, HardDrive, Circle, 
-  Zap, Code2, ShoppingCart, Gamepad2, Database
+  Zap, Code2, ShoppingCart, Gamepad2, Database, MessageCircle, Map, Video
 } from 'lucide-react';
 
 // ==============================================================================
@@ -27,54 +27,54 @@ const MANUAL_CONFIG = {
 };
 
 // ==============================================================================
-// 2. 🧠 智能伪 AI 引擎 (Smart Mock AI Engine)
-//    在没有接入真实 LLM API 的情况下，根据关键词动态生成合理的项目结构
+// 2. 🧠 增强型 AI 语义拆解引擎 (NLP V2)
 // ==============================================================================
 const generateSmartBlueprint = (prompt: string) => {
   const p = prompt.toLowerCase();
   let modules = [];
   let type = "General";
 
-  // 场景 A: 电商/商城
-  if (p.includes("shop") || p.includes("store") || p.includes("commerce") || p.includes("卖") || p.includes("商城")) {
+  // 场景 A: 社交/聊天 (微信/Whatsapp)
+  if (p.includes("chat") || p.includes("social") || p.includes("社交") || p.includes("微信") || p.includes("聊天")) {
+    type = "Social App";
+    modules = [
+      { id: 'm1', title: '账号体系 (Identity)', isCompleted: true, timeEstimate: '10h', subTasks: [{id: 's1', title: '手机号注册', isCompleted: true}] },
+      { id: 'm2', title: '实时通讯 (WebSocket)', isCompleted: false, timeEstimate: '25h', subTasks: [{id: 's2', title: '长连接心跳', isCompleted: false}] },
+      { id: 'm3', title: '好友关系链 (Graph DB)', isCompleted: false, timeEstimate: '15h' },
+      { id: 'm4', title: '消息存储与同步 (Sync)', isCompleted: false, timeEstimate: '20h' },
+      { id: 'm5', title: '朋友圈/动态 (Feed)', isCompleted: false, timeEstimate: '18h' },
+    ];
+  }
+  // 场景 B: 电商 (淘宝/Amazon)
+  else if (p.includes("shop") || p.includes("store") || p.includes("commerce") || p.includes("卖") || p.includes("商城")) {
     type = "E-Commerce";
     modules = [
-      { id: 'm1', title: '用户中心 (User Auth)', isCompleted: true, timeEstimate: '8h', subTasks: [{id: 's1', title: 'Login UI', isCompleted: true}] },
-      { id: 'm2', title: '商品目录 (Catalog)', isCompleted: false, timeEstimate: '12h', subTasks: [{id: 's2', title: 'Product Card', isCompleted: false}] },
-      { id: 'm3', title: '购物车逻辑 (Cart)', isCompleted: false, timeEstimate: '6h' },
-      { id: 'm4', title: '支付对接 (Stripe/Alipay)', isCompleted: false, timeEstimate: '10h' },
-      { id: 'm5', title: '订单管理后台 (Admin)', isCompleted: false, timeEstimate: '15h' },
+      { id: 'm1', title: '商品中心 (SKU/SPU)', isCompleted: true, timeEstimate: '15h' },
+      { id: 'm2', title: '交易系统 (Order)', isCompleted: false, timeEstimate: '20h' },
+      { id: 'm3', title: '支付网关 (Payment)', isCompleted: false, timeEstimate: '10h' },
+      { id: 'm4', title: '营销活动 (Promotion)', isCompleted: false, timeEstimate: '12h' },
+      { id: 'm5', title: '物流追踪 (Logistics)', isCompleted: false, timeEstimate: '8h' },
     ];
-  } 
-  // 场景 B: 游戏
-  else if (p.includes("game") || p.includes("play") || p.includes("unity") || p.includes("游戏")) {
+  }
+  // 场景 C: 游戏 (RPG/FPS)
+  else if (p.includes("game") || p.includes("unity") || p.includes("游戏") || p.includes("玩")) {
     type = "Game Dev";
     modules = [
-      { id: 'm1', title: '核心玩法原型 (Core Loop)', isCompleted: true, timeEstimate: '20h' },
-      { id: 'm2', title: '物理引擎配置 (Physics)', isCompleted: false, timeEstimate: '8h' },
-      { id: 'm3', title: '美术资源导入 (Assets)', isCompleted: false, timeEstimate: '12h' },
-      { id: 'm4', title: '音效与UI (Audio/GUI)', isCompleted: false, timeEstimate: '6h' },
-      { id: 'm5', title: '排行榜系统 (Leaderboard)', isCompleted: false, timeEstimate: '5h' },
+      { id: 'm1', title: '游戏循环 (Game Loop)', isCompleted: true, timeEstimate: '8h' },
+      { id: 'm2', title: '场景搭建 (Level Design)', isCompleted: false, timeEstimate: '30h' },
+      { id: 'm3', title: '角色控制 (Controller)', isCompleted: false, timeEstimate: '15h' },
+      { id: 'm4', title: '数值策划 (Balancing)', isCompleted: false, timeEstimate: '10h' },
+      { id: 'm5', title: '网络同步 (Netcode)', isCompleted: false, timeEstimate: '40h' },
     ];
   }
-  // 场景 C: 数据/后台/管理系统
-  else if (p.includes("data") || p.includes("crm") || p.includes("dashboard") || p.includes("管理") || p.includes("数据")) {
-    type = "SaaS / Dashboard";
-    modules = [
-      { id: 'm1', title: '数据库设计 (Schema)', isCompleted: true, timeEstimate: '6h' },
-      { id: 'm2', title: 'API 接口开发 (Backend)', isCompleted: false, timeEstimate: '15h' },
-      { id: 'm3', title: '前端仪表盘 (Charts)', isCompleted: false, timeEstimate: '10h' },
-      { id: 'm4', title: '权限管理 (RBAC)', isCompleted: false, timeEstimate: '8h' },
-    ];
-  }
-  // 场景 D: 默认通用
+  // 场景 D: 默认
   else {
     modules = [
-      { id: 'm1', title: '需求分析 (Requirements)', isCompleted: true, timeEstimate: '4h' },
-      { id: 'm2', title: 'UI/UX 设计 (Design)', isCompleted: false, timeEstimate: '12h' },
-      { id: 'm3', title: '前端开发 (Frontend)', isCompleted: false, timeEstimate: '20h' },
-      { id: 'm4', title: '后端开发 (Backend)', isCompleted: false, timeEstimate: '20h' },
-      { id: 'm5', title: '测试与部署 (Deploy)', isCompleted: false, timeEstimate: '6h' },
+      { id: 'm1', title: '需求分析 & 原型', isCompleted: true, timeEstimate: '5h' },
+      { id: 'm2', title: '技术选型 & 架构', isCompleted: false, timeEstimate: '3h' },
+      { id: 'm3', title: '核心功能开发', isCompleted: false, timeEstimate: '20h' },
+      { id: 'm4', title: 'UI/UX 界面实现', isCompleted: false, timeEstimate: '15h' },
+      { id: 'm5', title: '测试与发布', isCompleted: false, timeEstimate: '5h' },
     ];
   }
 
@@ -82,10 +82,11 @@ const generateSmartBlueprint = (prompt: string) => {
 };
 
 // ==============================================================================
-// 3. 💾 数据结构 & 本地引擎
+// 3. 💾 永久存储层 (Permanent Storage Layer)
 // ==============================================================================
-const LOCAL_STORAGE_KEY = 'nexus_projects_v11';
-const USER_STORAGE_KEY = 'nexus_user_session_v1'; // 新增：保存用户登录状态
+// 🛑 核心修改：这是一个永久的 Key，以后更新代码绝对不动它！
+const MASTER_STORAGE_KEY = 'project_nexus_master_data';
+const MASTER_USER_KEY = 'project_nexus_master_user';
 
 type SubTask = { id: string; title: string; isCompleted: boolean; };
 type Module = { id: string; title: string; isCompleted: boolean; timeEstimate: string; subTasks?: SubTask[]; };
@@ -96,7 +97,7 @@ type Project = {
   progress: number; 
   createdAt: number; 
   modules?: Module[]; 
-  projectType?: string; // 新增：项目类型
+  projectType?: string; 
   syncStatus: 'synced' | 'pending' | 'error';
 };
 
@@ -105,20 +106,20 @@ type Project = {
 // ==============================================================================
 const TRANSLATIONS_FLAT = {
   en: {
-    login_title: "Nexus Workspace", login_subtitle: "Local-First + Smart AI.", login_placeholder: "Your Name", login_btn: "Enter",
-    sidebar_workspace: "WORKSPACE", sidebar_myProjects: "My Projects", sidebar_team: "Team", sidebar_ai: "AI Studio", sidebar_logout: "Log Out",
-    dash_welcome: "Welcome back,", dash_subtitle: "Your creative command center.", dash_newProject: "New Project", dash_noProjects: "No projects. Create one!", dash_createBtn: "Create", dash_aiTitle: "AI Planner", dash_aiDesc: "Turn ideas into blueprints.",
-    detail_overview: "Overview", detail_blocks: "Task Blocks", detail_flow: "Blueprint", detail_list: "List",
-    modal_title: "AI Project Planner", modal_desc: "Describe your idea (e.g. 'A shopping app'), AI will break it down.", modal_placeholder: "E.g. I want to build a crypto trading bot...", modal_cancel: "Cancel", modal_generate: "Generate", modal_name: "Project Name", modal_descLabel: "Description", modal_create: "Create",
-    status_saved: "Cloud Synced", status_pending: "Local Only", status_error: "Sync Failed", status_connected: "Online", status_disconnected: "Offline", status_permission: "Permission Denied"
+    login_title: "Nexus Workspace", login_subtitle: "Your Persistent Creative Hub.", login_placeholder: "Your Name", login_btn: "Enter",
+    sidebar_workspace: "WORKSPACE", sidebar_myProjects: "Projects", sidebar_team: "Team", sidebar_ai: "AI Studio", sidebar_logout: "Log Out",
+    dash_welcome: "Welcome back,", dash_subtitle: "Your projects are safe here.", dash_newProject: "New Project", dash_noProjects: "No projects. Create one!", dash_createBtn: "Create", dash_aiTitle: "AI Planner", dash_aiDesc: "Auto-breakdown huge ideas.",
+    detail_overview: "Overview", detail_blocks: "Modules", detail_flow: "Blueprint", detail_list: "List",
+    modal_title: "AI Architect", modal_desc: "Describe your app (e.g. 'WeChat clone'), I'll draw the blueprint.", modal_placeholder: "E.g. A food delivery app like UberEats...", modal_cancel: "Cancel", modal_generate: "Auto Build", modal_name: "Project Name", modal_descLabel: "Description", modal_create: "Create",
+    status_saved: "Synced", status_pending: "Local", status_error: "Error", status_connected: "Online", status_disconnected: "Offline", status_permission: "Auth Error"
   },
   zh: {
-    login_title: "Nexus 工作台", login_subtitle: "记忆化登录 + 智能切分", login_placeholder: "你的昵称", login_btn: "进入工作区",
-    sidebar_workspace: "工作区", sidebar_myProjects: "我的项目库", sidebar_team: "团队协作", sidebar_ai: "AI 创意工坊", sidebar_logout: "退出登录",
-    dash_welcome: "欢迎回来，", dash_subtitle: "你的创意指挥中心。", dash_newProject: "新建项目", dash_noProjects: "暂无项目。创建一个吧！", dash_createBtn: "立即创建", dash_aiTitle: "AI 规划师", dash_aiDesc: "输入想法，自动生成流程图。",
-    detail_overview: "概览", detail_blocks: "任务积木", detail_flow: "蓝图视图", detail_list: "列表视图",
-    modal_title: "AI 项目规划师", modal_desc: "描述你的想法（如“做个射击游戏”），AI 帮你切碎成任务。", modal_placeholder: "例如：我想做一个类似淘宝的商城...", modal_cancel: "取消", modal_generate: "智能生成", modal_name: "项目名称", modal_descLabel: "项目简介", modal_create: "确认创建",
-    status_saved: "已同步云端", status_pending: "仅本地保存", status_error: "同步失败", status_connected: "云端已连接", status_disconnected: "网络已断开", status_permission: "权限被拒绝"
+    login_title: "Nexus 工作台", login_subtitle: "永久存储 + 智能架构师", login_placeholder: "你的昵称", login_btn: "进入工作区",
+    sidebar_workspace: "工作区", sidebar_myProjects: "我的项目库", sidebar_team: "团队协作", sidebar_ai: "AI 架构师", sidebar_logout: "退出登录",
+    dash_welcome: "欢迎回来，", dash_subtitle: "你的项目已永久保存，刷新不丢失。", dash_newProject: "新建项目", dash_noProjects: "暂无项目。创建一个吧！", dash_createBtn: "立即创建", dash_aiTitle: "AI 架构师", dash_aiDesc: "输入想法，自动生成架构图。",
+    detail_overview: "概览", detail_blocks: "积木模块", detail_flow: "架构蓝图", detail_list: "列表视图",
+    modal_title: "AI 项目架构师", modal_desc: "告诉我你想做什么（比如“仿微信”），我来帮你切分模块。", modal_placeholder: "例如：做一个外卖平台，包含骑手端...", modal_cancel: "取消", modal_generate: "智能生成", modal_name: "项目名称", modal_descLabel: "项目简介", modal_create: "确认创建",
+    status_saved: "已同步", status_pending: "本地存储", status_error: "同步失败", status_connected: "云端已连接", status_disconnected: "网络已断开", status_permission: "权限被拒绝"
   }
 };
 
@@ -129,51 +130,80 @@ const useSafeT = (lang: 'en' | 'zh') => {
 };
 
 // ==============================================================================
-// 5. 🧩 蓝图视图 (Blueprint View - 增强版)
+// 5. 🧩 蓝图视图 (Blueprint View - 视觉增强)
 // ==============================================================================
 const BlueprintView = ({ project }: { project: Project }) => (
   <div className="relative w-full h-full overflow-auto bg-slate-50/50 p-10 flex items-center justify-start min-h-[500px]">
-    <div className="flex gap-20 items-start animate-in fade-in zoom-in-95 duration-500">
+    <div className="flex gap-24 items-start animate-in fade-in zoom-in-95 duration-500">
       
-      {/* 根节点 (大项目) */}
-      <div className="relative z-10 mt-10">
-        <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl shadow-indigo-200 border-4 border-indigo-100 w-72 text-center relative group hover:scale-105 transition-transform duration-300">
-           <div className="absolute -top-4 -right-4 bg-indigo-500 rounded-xl p-3 shadow-lg shadow-indigo-500/40">
-             {project.projectType === 'Game Dev' ? <Gamepad2 size={24}/> : project.projectType === 'E-Commerce' ? <ShoppingCart size={24}/> : <Layout size={24}/>}
+      {/* 根节点 */}
+      <div className="relative z-10 mt-12 sticky top-10">
+        <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-2xl shadow-indigo-500/20 border-4 border-indigo-100 w-80 text-center relative group hover:scale-105 transition-transform duration-300">
+           <div className="absolute -top-5 -right-5 bg-indigo-600 rounded-2xl p-3 shadow-lg shadow-indigo-500/40 transform rotate-12 group-hover:rotate-0 transition-transform">
+             {project.projectType === 'Game Dev' ? <Gamepad2 size={28}/> : 
+              project.projectType === 'E-Commerce' ? <ShoppingCart size={28}/> : 
+              project.projectType === 'Social App' ? <MessageCircle size={28}/> :
+              <Layout size={28}/>}
            </div>
-           <h3 className="font-bold text-xl mb-1">{project.title}</h3>
-           <div className="text-xs text-indigo-200 uppercase tracking-wider font-bold mb-4">{project.projectType || 'General Project'}</div>
-           <div className="w-full bg-slate-700 h-2 rounded-full overflow-hidden">
-             <div className="bg-indigo-500 h-full" style={{width: `${project.progress}%`}}></div>
+           <h3 className="font-bold text-2xl mb-2 tracking-tight">{project.title}</h3>
+           <div className="inline-block px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-200 text-xs font-bold uppercase tracking-wider mb-6 border border-indigo-500/30">
+             {project.projectType || 'General Project'}
+           </div>
+           
+           <div className="flex justify-between text-xs text-slate-400 mb-2 font-mono">
+             <span>PROGRESS</span>
+             <span>{project.progress}%</span>
+           </div>
+           <div className="w-full bg-slate-700 h-3 rounded-full overflow-hidden border border-slate-600">
+             <div className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full transition-all duration-1000" style={{width: `${project.progress}%`}}></div>
            </div>
            {/* 连接点 */}
            <div className="absolute top-1/2 -right-3 w-4 h-4 bg-indigo-500 rounded-full border-4 border-white" />
         </div>
       </div>
 
-      {/* 模块层级 (切碎的小项目) */}
-      <div className="flex flex-col gap-6 relative">
+      {/* 模块层级 */}
+      <div className="flex flex-col gap-8 relative">
          {/* 垂直连线 */}
-         <div className="absolute left-[-40px] top-12 bottom-12 w-1 bg-slate-200 rounded-full"></div>
+         <div className="absolute left-[-48px] top-20 bottom-20 w-1 bg-slate-200 rounded-full"></div>
 
          {project.modules?.map((module, idx) => (
            <div key={module.id} className="relative flex items-center group">
              {/* 水平连线 */}
-             <div className="w-20 h-1 bg-slate-200 absolute -left-20 top-1/2 transition-all group-hover:bg-indigo-400 group-hover:w-[84px]"></div>
-             <div className="absolute -left-[44px] top-1/2 w-3 h-3 bg-slate-300 rounded-full transform -translate-y-1/2 border-2 border-white group-hover:bg-indigo-500 transition-colors"></div>
+             <div className="w-24 h-1 bg-slate-200 absolute -left-24 top-1/2 transition-all group-hover:bg-indigo-400 group-hover:w-[100px]"></div>
+             <div className="absolute -left-[48px] top-1/2 w-3 h-3 bg-slate-300 rounded-full transform -translate-y-1/2 border-2 border-white group-hover:bg-indigo-500 transition-colors"></div>
              
-             <div className={`w-80 p-5 rounded-xl border-2 transition-all bg-white hover:shadow-lg hover:-translate-y-1 duration-200 ${module.isCompleted ? 'border-emerald-100 bg-emerald-50/30' : 'border-slate-100 hover:border-indigo-300'}`}>
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-1.5 py-0.5 rounded">#{idx+1}</span>
-                    <h4 className={`font-bold ${module.isCompleted ? 'text-emerald-700 line-through decoration-emerald-300' : 'text-slate-800'}`}>{module.title}</h4>
+             <div className={`w-96 p-5 rounded-xl border-2 transition-all bg-white hover:shadow-xl hover:-translate-y-1 duration-200 ${module.isCompleted ? 'border-emerald-100 bg-emerald-50/20' : 'border-slate-100 hover:border-indigo-400'}`}>
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex items-center gap-3">
+                    <span className="bg-slate-100 text-slate-500 text-xs font-bold px-2 py-1 rounded-lg">STAGE {idx+1}</span>
+                    <h4 className={`font-bold text-lg ${module.isCompleted ? 'text-emerald-700 line-through decoration-emerald-300' : 'text-slate-800'}`}>{module.title}</h4>
                   </div>
-                  {module.isCompleted ? <CheckCircle2 size={18} className="text-emerald-500"/> : <Circle size={18} className="text-slate-300"/>}
+                  {module.isCompleted ? <CheckCircle2 size={20} className="text-emerald-500"/> : <Circle size={20} className="text-slate-300"/>}
                 </div>
-                <div className="flex items-center gap-4 mt-3">
-                  <span className="text-xs text-slate-400 flex items-center gap-1 bg-slate-50 px-2 py-1 rounded"><Calendar size={10}/> {module.timeEstimate}</span>
-                  <span className="text-xs text-indigo-400 font-medium">Assign to AI</span>
+                
+                <div className="flex items-center gap-4 mt-4">
+                  <span className="text-xs text-slate-500 flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-lg font-medium border border-slate-200">
+                    <Calendar size={12}/> {module.timeEstimate}
+                  </span>
+                  {!module.isCompleted && (
+                    <span className="text-xs text-indigo-500 font-bold flex items-center gap-1 cursor-pointer hover:underline">
+                      <Zap size={12}/> AI 生成代码
+                    </span>
+                  )}
                 </div>
+
+                {/* 子任务预览 */}
+                {module.subTasks && module.subTasks.length > 0 && (
+                  <div className="mt-4 pt-3 border-t border-slate-100 space-y-2">
+                    {module.subTasks.map(sub => (
+                      <div key={sub.id} className="flex items-center gap-2 text-xs text-slate-500">
+                        <div className={`w-1.5 h-1.5 rounded-full ${sub.isCompleted ? 'bg-emerald-400' : 'bg-slate-300'}`}></div>
+                        <span>{sub.title}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
              </div>
            </div>
          ))}
@@ -183,7 +213,7 @@ const BlueprintView = ({ project }: { project: Project }) => (
 );
 
 // ==============================================================================
-// 6. 🔐 登录组件 (支持自动登录)
+// 6. 🔐 登录组件 (带记忆功能)
 // ==============================================================================
 const LoginScreen = ({ onLogin, lang, setLang, isLoggingIn }: any) => {
   const [name, setName] = useState('');
@@ -203,7 +233,7 @@ const LoginScreen = ({ onLogin, lang, setLang, isLoggingIn }: any) => {
         <p className="text-slate-500 mb-8">{t.login_subtitle}</p>
         <form onSubmit={(e) => { e.preventDefault(); onLogin(name); }} className="space-y-4" noValidate>
           <input 
-            autoComplete="off" spellCheck={false} data-lpignore="true" 
+            autoComplete="new-password" spellCheck={false} data-lpignore="true" 
             value={name} onChange={(e) => setName(e.target.value)} 
             placeholder={t.login_placeholder} 
             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-slate-800" 
@@ -243,7 +273,7 @@ const MainContent = ({ user, db, auth, appId, logout }: any) => {
 
   // 🔄 加载本地数据
   useEffect(() => {
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+    const saved = localStorage.getItem(MASTER_STORAGE_KEY);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -270,7 +300,7 @@ const MainContent = ({ user, db, auth, appId, logout }: any) => {
         const pendingLocal = prevLocal.filter(p => !cloudIds.has(p.id));
         const merged = [...pendingLocal, ...cloudProjects];
         merged.sort((a, b) => b.createdAt - a.createdAt);
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));
+        localStorage.setItem(MASTER_STORAGE_KEY, JSON.stringify(merged));
         return merged;
       });
     }, (error) => {
@@ -283,14 +313,14 @@ const MainContent = ({ user, db, auth, appId, logout }: any) => {
   const saveProject = async (newProject: Project) => {
     const updatedList = [newProject, ...projects];
     setProjects(updatedList);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedList));
+    localStorage.setItem(MASTER_STORAGE_KEY, JSON.stringify(updatedList));
 
     if (db && user) {
       try {
         const docRef = await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'projects'), { ...newProject, syncStatus: undefined });
         setProjects(prev => {
           const newList = prev.map(p => p.id === newProject.id ? { ...p, id: docRef.id, syncStatus: 'synced' as const } : p);
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newList));
+          localStorage.setItem(MASTER_STORAGE_KEY, JSON.stringify(newList));
           return newList;
         });
       } catch (err) { console.error(err); }
@@ -309,6 +339,7 @@ const MainContent = ({ user, db, auth, appId, logout }: any) => {
       progress: 0,
       createdAt: Date.now(),
       syncStatus: 'pending',
+      projectType: 'General',
       modules: [
         { id: 'm1', title: 'Phase 1: Planning', isCompleted: false, timeEstimate: '2h' },
         { id: 'm2', title: 'Phase 2: Execution', isCompleted: false, timeEstimate: '10h' }
@@ -326,20 +357,20 @@ const MainContent = ({ user, db, auth, appId, logout }: any) => {
     if (!aiPrompt.trim()) return;
     setIsGenerating(true);
     
-    // 模拟思考
-    await new Promise(resolve => setTimeout(resolve, 1200));
+    // 模拟 AI 思考
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // 调用智能分析
+    // 调用智能分析引擎
     const { type, modules } = generateSmartBlueprint(aiPrompt);
 
     const newProject: Project = {
       id: `local-${Date.now()}`,
       title: aiPrompt.length > 20 ? aiPrompt.slice(0, 20) + "..." : aiPrompt,
-      description: `AI Generated for: "${aiPrompt}"`,
+      description: `AI Generated Blueprint for: "${aiPrompt}"`,
       progress: 0,
       createdAt: Date.now(),
       syncStatus: 'pending',
-      projectType: type, // 标记类型，用于蓝图显示图标
+      projectType: type,
       modules: modules,
     };
 
@@ -353,7 +384,7 @@ const MainContent = ({ user, db, auth, appId, logout }: any) => {
     if (!confirm("Delete?")) return;
     const updated = projects.filter(p => p.id !== id);
     setProjects(updated);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+    localStorage.setItem(MASTER_STORAGE_KEY, JSON.stringify(updated));
     if (db && user && !id.startsWith('local-')) {
       try { await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'projects', id)); } catch (e) {}
     }
@@ -501,12 +532,12 @@ const MainContent = ({ user, db, auth, appId, logout }: any) => {
               <h3 className="text-xl font-bold mb-4">{t.modal_title}</h3>
               <form onSubmit={handleCreateProject}>
                 <input 
-                  autoComplete="off" spellCheck={false} data-lpignore="true" 
+                  autoComplete="new-password" spellCheck={false} data-lpignore="true" 
                   autoFocus value={newProjectTitle} onChange={e => setNewProjectTitle(e.target.value)} 
                   className="w-full border border-slate-300 rounded-lg px-3 py-2 mb-4 outline-none focus:ring-2 focus:ring-indigo-500" placeholder={t.modal_name} required 
                 />
                 <textarea 
-                  autoComplete="off" spellCheck={false} data-lpignore="true"
+                  autoComplete="new-password" spellCheck={false} data-lpignore="true"
                   value={newProjectDesc} onChange={e => setNewProjectDesc(e.target.value)} 
                   className="w-full border border-slate-300 rounded-lg px-3 py-2 h-20 mb-6 outline-none focus:ring-2 focus:ring-indigo-500" placeholder={t.modal_descLabel} 
                 />
@@ -530,7 +561,7 @@ const MainContent = ({ user, db, auth, appId, logout }: any) => {
                 <h3 className="text-xl font-bold flex items-center gap-2"><Sparkles /> {t.modal_title}</h3>
               </div>
               <textarea 
-                autoComplete="off" spellCheck={false} data-lpignore="true"
+                autoComplete="new-password" spellCheck={false} data-lpignore="true"
                 value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} 
                 className="w-full h-32 border border-slate-200 rounded-xl p-4 focus:ring-2 focus:ring-indigo-500 outline-none resize-none" placeholder={t.modal_placeholder} 
               />
@@ -573,7 +604,7 @@ export default function App() {
         }
 
         // 1. 先尝试从本地恢复登录
-        const savedUser = localStorage.getItem(USER_STORAGE_KEY);
+        const savedUser = localStorage.getItem(MASTER_USER_KEY);
         if (savedUser) {
           setCurrentUser(JSON.parse(savedUser));
         }
@@ -591,7 +622,7 @@ export default function App() {
             // 如果 Firebase 登录成功，更新本地 Session
             if (u) {
               const sessionUser = { uid: u.uid, displayName: u.displayName || 'User' };
-              localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(sessionUser));
+              localStorage.setItem(MASTER_USER_KEY, JSON.stringify(sessionUser));
               setCurrentUser(sessionUser as any);
             }
           });
@@ -613,23 +644,23 @@ export default function App() {
         await updateProfile(userCredential.user, { displayName: username });
         const u = userCredential.user;
         const fbUser = { uid: u.uid, displayName: username };
-        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(fbUser));
+        localStorage.setItem(MASTER_USER_KEY, JSON.stringify(fbUser));
         setCurrentUser(fbUser as any);
       } catch (e) {
         // 降级：纯本地会话
-        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(sessionUser));
+        localStorage.setItem(MASTER_USER_KEY, JSON.stringify(sessionUser));
         setCurrentUser(sessionUser as any);
       }
     } else {
       // 纯本地会话
-      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(sessionUser));
+      localStorage.setItem(MASTER_USER_KEY, JSON.stringify(sessionUser));
       setCurrentUser(sessionUser as any);
     }
     setIsLoggingIn(false);
   };
 
   const handleLogout = async () => {
-    localStorage.removeItem(USER_STORAGE_KEY);
+    localStorage.removeItem(MASTER_USER_KEY);
     if (authRef.current) await signOut(authRef.current);
     setCurrentUser(null);
   };
