@@ -14,10 +14,9 @@ import {
 } from 'lucide-react';
 
 // ==============================================================================
-// 1. 🟢 配置区域 (引擎核心)
+// 1. 🟢 配置区域
 // ==============================================================================
 const MANUAL_CONFIG = {
-  // ⚠️ 建议填入真实配置以启用云同步。即使为空，本地模式也能完美运行。
   apiKey: "AIzaSyDriBJ3yHf2XnNf5ouXd7S_KZsMu7V4w58", 
   authDomain: "", 
   projectId: "project-nexus-demo", 
@@ -27,9 +26,9 @@ const MANUAL_CONFIG = {
 };
 
 // ==============================================================================
-// 2. 💾 数据结构 & 本地引擎
+// 2. 💾 数据结构
 // ==============================================================================
-const LOCAL_STORAGE_KEY = 'nexus_projects_v8_titan';
+const LOCAL_STORAGE_KEY = 'nexus_projects_v10_plat';
 
 type SubTask = { id: string; title: string; isCompleted: boolean; };
 type Module = { id: string; title: string; isCompleted: boolean; timeEstimate: string; subTasks?: SubTask[]; };
@@ -40,96 +39,146 @@ type Project = {
   progress: number; 
   createdAt: number; 
   modules?: Module[]; 
-  members?: string[];
   syncStatus: 'synced' | 'pending' | 'error';
 };
 
 // ==============================================================================
-// 3. 🌍 多语言 (绝对防御版)
+// 3. 🌍 扁平化多语言 (彻底杜绝嵌套报错)
 // ==============================================================================
-const TRANSLATIONS = {
+const TRANSLATIONS_FLAT = {
   en: {
-    login: { title: "Nexus Workspace", subtitle: "Local-First + AI Power.", placeholder: "Your Name", btn: "Enter" },
-    sidebar: { workspace: "WORKSPACE", myProjects: "My Projects", team: "Team", ai: "AI Studio", settings: "Settings", logout: "Log Out" },
-    dashboard: { welcome: "Welcome,", subtitle: "Your creative command center.", newProject: "New Project", noProjects: "No projects. Create one!", createBtn: "Create", aiCardTitle: "AI Planner", aiCardDesc: "Turn ideas into blueprints." },
-    detail: { overview: "Overview", blocks: "Task Blocks", addBlock: "Add Module", flow: "Blueprint View", list: "List View" },
-    modal: { title: "AI Project Planner", desc: "Describe your idea, AI will break it down.", placeholder: "E.g. A fitness app with social features...", cancel: "Cancel", generate: "Generate Project", nameLabel: "Name", descLabel: "Description", create: "Create" },
-    status: { saved: "Cloud Synced", pending: "Local Only", error: "Sync Failed", connected: "Connected", disconnected: "Offline", permission: "Permission Denied" }
+    login_title: "Nexus Workspace", 
+    login_subtitle: "Local-First + AI Power.", 
+    login_placeholder: "Your Name", 
+    login_btn: "Enter",
+    
+    sidebar_workspace: "WORKSPACE", 
+    sidebar_myProjects: "My Projects", 
+    sidebar_team: "Team", 
+    sidebar_ai: "AI Studio", 
+    sidebar_logout: "Log Out",
+    
+    dash_welcome: "Welcome,", 
+    dash_subtitle: "Your creative command center.", 
+    dash_newProject: "New Project", 
+    dash_noProjects: "No projects. Create one!", 
+    dash_createBtn: "Create", 
+    dash_aiTitle: "AI Planner", 
+    dash_aiDesc: "Turn ideas into blueprints.",
+    
+    detail_overview: "Overview", 
+    detail_blocks: "Task Blocks", 
+    detail_flow: "Blueprint", 
+    detail_list: "List",
+    
+    modal_title: "AI Project Planner", 
+    modal_desc: "Describe your idea, AI will break it down.", 
+    modal_placeholder: "E.g. A fitness app...", 
+    modal_cancel: "Cancel", 
+    modal_generate: "Generate", 
+    modal_name: "Project Name", 
+    modal_descLabel: "Description", 
+    modal_create: "Create",
+    
+    status_saved: "Cloud Synced", 
+    status_pending: "Local Only", 
+    status_error: "Sync Failed",
+    status_connected: "Online",
+    status_disconnected: "Offline",
+    status_permission: "Permission Denied"
   },
   zh: {
-    login: { title: "Nexus 工作台", subtitle: "本地优先架构 + AI 赋能", placeholder: "你的昵称", btn: "进入工作区" },
-    sidebar: { workspace: "工作区", myProjects: "我的项目库", team: "团队协作", ai: "AI 创意工坊", settings: "设置", logout: "退出登录" },
-    dashboard: { welcome: "欢迎回来，", subtitle: "你的创意指挥中心。", newProject: "新建项目", noProjects: "暂无项目。创建你的第一个作品！", createBtn: "立即创建", aiCardTitle: "AI 规划师", aiCardDesc: "一键将想法转化为蓝图。" },
-    detail: { overview: "概览", blocks: "任务积木", addBlock: "添加模块", flow: "蓝图视图", list: "列表视图" },
-    modal: { title: "AI 项目规划师", desc: "描述你的想法，AI 帮你拆解为可执行积木。", placeholder: "例如：做一个带有社交功能的健身 App...", cancel: "取消", generate: "生成项目架构", nameLabel: "项目名称", descLabel: "项目简介", create: "确认创建" },
-    status: { saved: "已同步云端", pending: "仅本地保存", error: "同步失败", connected: "云端已连接", disconnected: "网络已断开", permission: "权限被拒绝 (请检查Rules)" }
+    login_title: "Nexus 工作台", 
+    login_subtitle: "本地优先 + AI 赋能", 
+    login_placeholder: "你的昵称", 
+    login_btn: "进入工作区",
+    
+    sidebar_workspace: "工作区", 
+    sidebar_myProjects: "我的项目库", 
+    sidebar_team: "团队协作", 
+    sidebar_ai: "AI 创意工坊", 
+    sidebar_logout: "退出登录",
+    
+    dash_welcome: "欢迎回来，", 
+    dash_subtitle: "你的创意指挥中心。", 
+    dash_newProject: "新建项目", 
+    dash_noProjects: "暂无项目。创建一个吧！", 
+    dash_createBtn: "立即创建", 
+    dash_aiTitle: "AI 规划师", 
+    dash_aiDesc: "一键将想法转化为蓝图。",
+    
+    detail_overview: "概览", 
+    detail_blocks: "任务积木", 
+    detail_flow: "蓝图视图", 
+    detail_list: "列表视图",
+    
+    modal_title: "AI 项目规划师", 
+    modal_desc: "描述你的想法，AI 帮你拆解。", 
+    modal_placeholder: "例如：做一个健身 App...", 
+    modal_cancel: "取消", 
+    modal_generate: "生成架构", 
+    modal_name: "项目名称", 
+    modal_descLabel: "项目简介", 
+    modal_create: "确认创建",
+    
+    status_saved: "已同步云端", 
+    status_pending: "仅本地保存", 
+    status_error: "同步失败",
+    status_connected: "云端已连接",
+    status_disconnected: "网络已断开",
+    status_permission: "权限被拒绝"
   }
 };
 
-// 🛡️ 核心修复：深度合并翻译对象，确保任何属性都不为 undefined
 const useSafeT = (lang: 'en' | 'zh') => {
-  const base = TRANSLATIONS['en'];
-  const target = TRANSLATIONS[lang] || base;
-  
-  return {
-    login: { ...base.login, ...target.login },
-    sidebar: { ...base.sidebar, ...target.sidebar },
-    dashboard: { ...base.dashboard, ...target.dashboard },
-    detail: { ...base.detail, ...target.detail },
-    modal: { ...base.modal, ...target.modal },
-    status: { ...base.status, ...target.status },
-  };
+  const base = TRANSLATIONS_FLAT['en'];
+  const target = TRANSLATIONS_FLAT[lang] || base;
+  return { ...base, ...target }; 
 };
 
 // ==============================================================================
-// 4. 🧩 蓝图视图组件 (Blueprint View)
+// 4. 🧩 蓝图视图
 // ==============================================================================
-const BlueprintView = ({ project }: { project: Project }) => {
-  return (
-    <div className="relative w-full h-full overflow-auto bg-slate-50/50 p-10 flex items-center justify-start min-h-[500px]">
-      <div className="flex gap-16 items-center animate-in fade-in zoom-in-95 duration-500">
-        {/* 根节点 */}
-        <div className="relative z-10">
-          <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl shadow-indigo-200 border-4 border-indigo-100 w-64 text-center relative group">
-             <div className="absolute -top-3 -right-3 bg-indigo-500 rounded-full p-2 shadow-lg"><Layout size={20}/></div>
-             <h3 className="font-bold text-lg mb-1">{project.title}</h3>
-             <div className="text-xs text-slate-400">Progress {project.progress}%</div>
-             <div className="absolute top-1/2 -right-3 w-3 h-3 bg-indigo-500 rounded-full" />
-          </div>
-        </div>
-
-        {/* 模块层级 */}
-        <div className="flex flex-col gap-8 relative">
-           <div className="absolute left-[-32px] top-10 bottom-10 w-0.5 bg-indigo-200 rounded-full"></div>
-           {project.modules?.map((module) => (
-             <div key={module.id} className="relative flex items-center group">
-               <div className="w-16 h-0.5 bg-indigo-200 absolute -left-16 top-1/2 transition-all group-hover:bg-indigo-400"></div>
-               <div className="absolute -left-16 top-1/2 w-2 h-2 bg-indigo-500 rounded-full transform -translate-x-1/2 -translate-y-1/2"></div>
-               
-               <div className={`w-64 p-4 rounded-xl border-2 transition-all bg-white hover:scale-105 duration-200 ${module.isCompleted ? 'border-green-400/50 shadow-green-100' : 'border-slate-200 shadow-sm hover:border-indigo-400'}`}>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${module.isCompleted ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
-                      {module.isCompleted ? 'DONE' : 'PENDING'}
-                    </span>
-                    <MoreHorizontal size={16} className="text-slate-300"/>
-                  </div>
-                  <h4 className="font-bold text-slate-800">{module.title}</h4>
-                  <p className="text-xs text-slate-400 mt-1 flex items-center gap-1"><Calendar size={10}/> {module.timeEstimate}</p>
-               </div>
-             </div>
-           ))}
+const BlueprintView = ({ project }: { project: Project }) => (
+  <div className="relative w-full h-full overflow-auto bg-slate-50/50 p-10 flex items-center justify-start min-h-[500px]">
+    <div className="flex gap-16 items-center animate-in fade-in zoom-in-95 duration-500">
+      <div className="relative z-10">
+        <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl shadow-indigo-200 border-4 border-indigo-100 w-64 text-center relative group">
+           <div className="absolute -top-3 -right-3 bg-indigo-500 rounded-full p-2 shadow-lg"><Layout size={20}/></div>
+           <h3 className="font-bold text-lg mb-1">{project.title}</h3>
+           <div className="text-xs text-slate-400">Progress {project.progress}%</div>
+           <div className="absolute top-1/2 -right-3 w-3 h-3 bg-indigo-500 rounded-full" />
         </div>
       </div>
+      <div className="flex flex-col gap-8 relative">
+         <div className="absolute left-[-32px] top-10 bottom-10 w-0.5 bg-indigo-200 rounded-full"></div>
+         {project.modules?.map((module) => (
+           <div key={module.id} className="relative flex items-center group">
+             <div className="w-16 h-0.5 bg-indigo-200 absolute -left-16 top-1/2 transition-all group-hover:bg-indigo-400"></div>
+             <div className="absolute -left-16 top-1/2 w-2 h-2 bg-indigo-500 rounded-full transform -translate-x-1/2 -translate-y-1/2"></div>
+             <div className={`w-64 p-4 rounded-xl border-2 transition-all bg-white hover:scale-105 duration-200 ${module.isCompleted ? 'border-green-400/50 shadow-green-100' : 'border-slate-200 shadow-sm hover:border-indigo-400'}`}>
+                <div className="flex justify-between items-center mb-2">
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${module.isCompleted ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                    {module.isCompleted ? 'DONE' : 'PENDING'}
+                  </span>
+                  <MoreHorizontal size={16} className="text-slate-300"/>
+                </div>
+                <h4 className="font-bold text-slate-800">{module.title}</h4>
+                <p className="text-xs text-slate-400 mt-1 flex items-center gap-1"><Calendar size={10}/> {module.timeEstimate}</p>
+             </div>
+           </div>
+         ))}
+      </div>
     </div>
-  );
-};
+  </div>
+);
 
 // ==============================================================================
-// 5. 🔐 登录组件
+// 5. 🔐 登录组件 (防插件干扰版)
 // ==============================================================================
 const LoginScreen = ({ onLogin, lang, setLang, isLoggingIn }: any) => {
   const [name, setName] = useState('');
-  const t = useSafeT(lang).login;
+  const t = useSafeT(lang);
 
   return (
     <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-6 font-sans">
@@ -141,27 +190,27 @@ const LoginScreen = ({ onLogin, lang, setLang, isLoggingIn }: any) => {
              <button onClick={() => setLang('zh')} className={`px-2 py-1 text-xs font-bold rounded ${lang === 'zh' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-400'}`}>中文</button>
            </div>
         </div>
-        <h1 className="text-2xl font-bold text-slate-900 mb-2">{t?.title}</h1>
-        <p className="text-slate-500 mb-8">{t?.subtitle}</p>
-        <form onSubmit={(e) => { e.preventDefault(); onLogin(name); }} className="space-y-4">
+        <h1 className="text-2xl font-bold text-slate-900 mb-2">{t.login_title}</h1>
+        <p className="text-slate-500 mb-8">{t.login_subtitle}</p>
+        <form onSubmit={(e) => { e.preventDefault(); onLogin(name); }} className="space-y-4" noValidate>
           <div>
             <input 
-              // 🛡️ 防插件干扰盾
-              autoComplete="off" 
+              // 🛡️ 终极插件防御：data-lpignore 和 new-password
+              autoComplete="new-password" 
               spellCheck={false} 
               data-lpignore="true" 
               data-form-type="other"
-              name="nexus-username-field"
+              name="nexus_login_field_v10"
               value={name} 
               onChange={(e) => setName(e.target.value)} 
-              placeholder={t?.placeholder} 
+              placeholder={t.login_placeholder} 
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-slate-800" 
               required 
             />
           </div>
           <button disabled={isLoggingIn || !name.trim()} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-xl shadow-xl shadow-indigo-200 transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2">
             {isLoggingIn ? <Loader2 className="animate-spin" /> : <LogIn size={20} />}
-            {isLoggingIn ? "Loading..." : t?.btn}
+            {isLoggingIn ? "Loading..." : t.login_btn}
           </button>
         </form>
       </div>
@@ -170,7 +219,7 @@ const LoginScreen = ({ onLogin, lang, setLang, isLoggingIn }: any) => {
 };
 
 // ==============================================================================
-// 6. 🏗️ 主应用组件 (核心逻辑)
+// 6. 🏗️ 主应用组件
 // ==============================================================================
 const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | null, auth: Auth | null, appId: string }) => {
   const [lang, setLang] = useState<'en' | 'zh'>('zh'); 
@@ -179,24 +228,19 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
   const [newProjectTitle, setNewProjectTitle] = useState('');
   const [newProjectDesc, setNewProjectDesc] = useState('');
   
-  // 状态管理
   const [view, setView] = useState<'dashboard' | 'detail'>('dashboard');
   const [projectMode, setProjectMode] = useState<'list' | 'blueprint'>('list');
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   
-  // AI 相关
   const [showAIModal, setShowAIModal] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  
-  // 网络状态
   const [networkStatus, setNetworkStatus] = useState<'connected' | 'disconnected' | 'permission-denied'>('connected');
   const [isCreating, setIsCreating] = useState(false);
 
-  // 使用安全翻译
   const t = useSafeT(lang);
 
-  // 🔄 初始化：加载本地数据
+  // 🔄 加载本地
   useEffect(() => {
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (saved) {
@@ -204,11 +248,11 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
         const parsed = JSON.parse(saved);
         parsed.sort((a: any, b: any) => b.createdAt - a.createdAt);
         setProjects(parsed);
-      } catch (e) { console.error("Local storage error", e); }
+      } catch (e) {}
     }
   }, []);
 
-  // 🔄 监听云端 (后台合并)
+  // 🔄 监听云端
   useEffect(() => {
     if (!user || !db) return;
     const q = query(collection(db, 'artifacts', appId, 'users', user.uid, 'projects'));
@@ -229,43 +273,13 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
         return merged;
       });
     }, (error) => {
-      console.warn("Cloud sync paused:", error);
+      console.warn("Sync paused:", error);
       if (error.code === 'permission-denied') setNetworkStatus('permission-denied');
       else setNetworkStatus('disconnected');
     });
     return () => unsubscribe();
   }, [user, db, appId]);
 
-  // 🟢 AI 创建项目
-  const handleAICreate = async () => {
-    if (!aiPrompt.trim()) return;
-    setIsGenerating(true);
-    
-    // 模拟 AI 思考时间
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    const newProject: Project = {
-      id: `local-${Date.now()}`,
-      title: "AI: " + aiPrompt.slice(0, 10) + "...", 
-      description: aiPrompt,
-      progress: 0,
-      createdAt: Date.now(),
-      syncStatus: 'pending',
-      modules: [
-        { id: 'm1', title: 'Phase 1: Architecture', isCompleted: false, timeEstimate: '4h' },
-        { id: 'm2', title: 'Phase 2: MVP Development', isCompleted: false, timeEstimate: '10h' },
-        { id: 'm3', title: 'Phase 3: Testing', isCompleted: false, timeEstimate: '3h' },
-      ],
-      members: ['bg-blue-500', 'bg-green-500']
-    };
-
-    saveProject(newProject);
-    setIsGenerating(false);
-    setShowAIModal(false);
-    setAiPrompt('');
-  };
-
-  // 通用保存逻辑
   const saveProject = async (newProject: Project) => {
     const updatedList = [newProject, ...projects];
     setProjects(updatedList);
@@ -306,22 +320,37 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
     setNewProjectDesc('');
   };
 
+  const handleAICreate = async () => {
+    if (!aiPrompt.trim()) return;
+    setIsGenerating(true);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    const newProject: Project = {
+      id: `local-${Date.now()}`,
+      title: "AI: " + aiPrompt.slice(0, 10) + "...", 
+      description: aiPrompt,
+      progress: 0,
+      createdAt: Date.now(),
+      syncStatus: 'pending',
+      modules: [
+        { id: 'm1', title: 'Phase 1: Architecture', isCompleted: false, timeEstimate: '4h' },
+        { id: 'm2', title: 'Phase 2: MVP', isCompleted: false, timeEstimate: '10h' },
+      ],
+      members: ['bg-blue-500']
+    };
+    saveProject(newProject);
+    setIsGenerating(false);
+    setShowAIModal(false);
+    setAiPrompt('');
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm("Delete?")) return;
     const updated = projects.filter(p => p.id !== id);
     setProjects(updated);
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
-
     if (db && user && !id.startsWith('local-')) {
-      try { await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'projects', id)); } 
-      catch (e) { console.error(e); }
+      try { await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'projects', id)); } catch (e) {}
     }
-  };
-
-  const openProject = (p: Project) => {
-    setActiveProject(p);
-    setView('detail');
-    setProjectMode('list');
   };
 
   return (
@@ -330,7 +359,7 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
       <div className="w-72 bg-[#0F172A] text-slate-400 flex flex-col h-full border-r border-slate-800 flex-shrink-0 hidden md:flex">
         <div className="p-6 flex items-center gap-3 text-white">
           <div className="bg-indigo-600 p-2.5 rounded-xl shadow-lg shadow-indigo-500/20"><Layout size={22} className="text-white" /></div>
-          <div><h1 className="font-bold text-lg tracking-tight">Project Nexus</h1><p className="text-[10px] text-indigo-300 font-medium tracking-wider mt-1 opacity-80">{t.sidebar?.workspace}</p></div>
+          <div><h1 className="font-bold text-lg tracking-tight">Project Nexus</h1><p className="text-[10px] text-indigo-300 font-medium tracking-wider mt-1 opacity-80">{t.sidebar_workspace}</p></div>
         </div>
         
         <div className="px-5 mb-6">
@@ -340,17 +369,17 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
              'bg-amber-500/10 text-amber-400 border-amber-500/20'
            }`}>
               {networkStatus === 'connected' ? <CloudLightning size={14} /> : <AlertTriangle size={14} />}
-              {networkStatus === 'connected' ? t.status?.connected : 
-               networkStatus === 'permission-denied' ? t.status?.permission : t.status?.disconnected}
+              {networkStatus === 'connected' ? t.status_connected : 
+               networkStatus === 'permission-denied' ? t.status_permission : t.status_disconnected}
            </div>
         </div>
 
         <nav className="flex-1 px-3 space-y-1">
           <div onClick={() => setView('dashboard')} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${view === 'dashboard' ? 'bg-indigo-600/10 text-indigo-400' : 'hover:bg-slate-800/50'}`}>
-            <Folder size={18} /> {t.sidebar?.myProjects}
+            <Folder size={18} /> {t.sidebar_myProjects}
           </div>
           <div onClick={() => setShowAIModal(true)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-800/50 cursor-pointer">
-            <BrainCircuit size={18} /> {t.sidebar?.ai}
+            <BrainCircuit size={18} /> {t.sidebar_ai}
           </div>
         </nav>
 
@@ -374,25 +403,24 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
             {view === 'detail' && (
               <button onClick={() => setView('dashboard')} className="p-2 hover:bg-slate-100 rounded-full text-slate-500"><ArrowLeft size={20}/></button>
             )}
-            {/* 🛡️ 修复：这里加了问号，防止白屏 */}
-            <h2 className="text-lg font-bold text-slate-800">{view === 'dashboard' ? t.sidebar?.myProjects : activeProject?.title}</h2>
+            <h2 className="text-lg font-bold text-slate-800">{view === 'dashboard' ? t.sidebar_myProjects : activeProject?.title}</h2>
           </div>
           <div className="flex items-center gap-3">
             {view === 'detail' && (
                <div className="flex bg-slate-100 p-1 rounded-lg">
-                 <button onClick={() => setProjectMode('list')} className={`p-1.5 rounded-md text-xs font-bold flex gap-1 ${projectMode==='list' ? 'bg-white shadow' : 'text-slate-500'}`}><List size={14}/> {t.detail?.list}</button>
-                 <button onClick={() => setProjectMode('blueprint')} className={`p-1.5 rounded-md text-xs font-bold flex gap-1 ${projectMode==='blueprint' ? 'bg-white shadow' : 'text-slate-500'}`}><Network size={14}/> {t.detail?.flow}</button>
+                 <button onClick={() => setProjectMode('list')} className={`p-1.5 rounded-md text-xs font-bold flex gap-1 ${projectMode==='list' ? 'bg-white shadow' : 'text-slate-500'}`}><List size={14}/> {t.detail_list}</button>
+                 <button onClick={() => setProjectMode('blueprint')} className={`p-1.5 rounded-md text-xs font-bold flex gap-1 ${projectMode==='blueprint' ? 'bg-white shadow' : 'text-slate-500'}`}><Network size={14}/> {t.detail_flow}</button>
                </div>
             )}
             <button onClick={() => setShowCreateModal(true)} className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-lg">
-              <Plus size={16} /> {t.dashboard?.newProject}
+              <Plus size={16} /> {t.dash_newProject}
             </button>
           </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50/30">
           
-          {/* 🛡️ 修复：替换箭头 -> 为 '到'，修复编译错误 */}
+          {/* 🛡️ 修复：使用中文“到”替换箭头，防止 JSX 报错 */}
           {networkStatus === 'permission-denied' && (
             <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 animate-in slide-in-from-top-2">
               <AlertTriangle className="text-red-500 shrink-0" />
@@ -410,15 +438,15 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
                  <div onClick={() => setShowAIModal(true)} className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white cursor-pointer hover:shadow-xl transition-all group flex flex-col justify-between">
                     <div>
                       <div className="bg-white/20 w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><Sparkles size={24} /></div>
-                      <h3 className="font-bold text-xl mb-2">{t.dashboard?.aiCardTitle}</h3>
-                      <p className="text-indigo-100 text-sm opacity-90">{t.dashboard?.aiCardDesc}</p>
+                      <h3 className="font-bold text-xl mb-2">{t.dash_aiTitle}</h3>
+                      <p className="text-indigo-100 text-sm opacity-90">{t.dash_aiDesc}</p>
                     </div>
                  </div>
                  {/* Projects */}
                  {projects.map(project => (
-                   <div key={project.id} onClick={() => openProject(project)} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-indigo-100 transition-all flex flex-col justify-between group cursor-pointer relative overflow-hidden">
-                     {project.syncStatus === 'pending' && (
-                       <div className="absolute top-0 right-0 p-2"><HardDrive size={12} className="text-amber-500"/></div>
+                   <div key={project.id} onClick={() => { setActiveProject(project); setView('detail'); setProjectMode('list'); }} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-indigo-100 transition-all flex flex-col justify-between group cursor-pointer relative overflow-hidden">
+                     {project.syncStatus === 'syncing' && (
+                       <div className="absolute top-0 right-0 p-2"><RefreshCw size={12} className="text-amber-500 animate-spin"/></div>
                      )}
                      <div>
                        <h3 className="font-bold text-slate-800 text-lg mb-1">{project.title}</h3>
@@ -438,7 +466,7 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
             <div className="h-full">
               {projectMode === 'list' ? (
                  <div className="max-w-4xl mx-auto bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                   <h3 className="font-bold mb-4 flex items-center gap-2"><Folder className="text-indigo-500"/> {t.detail?.blocks}</h3>
+                   <h3 className="font-bold mb-4 flex items-center gap-2"><Folder className="text-indigo-500"/> {t.detail_blocks}</h3>
                    <div className="space-y-3">
                      {activeProject.modules?.map(m => (
                        <div key={m.id} className="p-4 border rounded-xl flex justify-between items-center bg-slate-50/50">
@@ -462,28 +490,32 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
         {showCreateModal && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95 duration-200">
-              <h3 className="text-xl font-bold mb-4">{t.modal?.createTitle}</h3>
-              <form onSubmit={handleCreateProject}>
+              <h3 className="text-xl font-bold mb-4">{t.modal_title}</h3>
+              <form onSubmit={handleCreateProject} noValidate>
                 <div className="mb-4">
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t.modal?.nameLabel}</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t.modal_name}</label>
                   <input 
-                    autoComplete="off" spellCheck={false} data-lpignore="true" 
+                    // 🛡️ 防插件干扰盾
+                    autoComplete="new-password" spellCheck={false} data-lpignore="true" 
+                    name="project_name_v10"
                     autoFocus value={newProjectTitle} onChange={e => setNewProjectTitle(e.target.value)} 
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none" required 
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 mb-4 outline-none focus:ring-2 focus:ring-indigo-500" placeholder={t.modal_name} required 
                   />
                 </div>
                 <div className="mb-6">
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t.modal?.descLabel}</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t.modal_descLabel}</label>
                   <textarea 
-                    autoComplete="off" spellCheck={false} data-lpignore="true"
+                    // 🛡️ 防插件干扰盾
+                    autoComplete="new-password" spellCheck={false} data-lpignore="true"
+                    name="project_desc_v10"
                     value={newProjectDesc} onChange={e => setNewProjectDesc(e.target.value)} 
                     className="w-full border border-slate-300 rounded-lg px-3 py-2 h-20 focus:ring-2 focus:ring-indigo-500 outline-none resize-none" 
                   />
                 </div>
                 <div className="flex justify-end gap-3">
-                  <button type="button" onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg">{t.modal?.cancel}</button>
+                  <button type="button" onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg">{t.modal_cancel}</button>
                   <button type="submit" disabled={isCreating} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg flex items-center gap-2">
-                    {isCreating ? <Loader2 className="animate-spin" size={16}/> : <CloudLightning size={16}/>} {t.modal?.create}
+                    {isCreating ? <Loader2 className="animate-spin" size={16}/> : <CloudLightning size={16}/>} {t.modal_create}
                   </button>
                 </div>
               </form>
@@ -497,17 +529,17 @@ const MainContent = ({ user, db, auth, appId }: { user: User, db: Firestore | nu
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95 duration-200">
               <div className="bg-indigo-600 -m-6 mb-6 p-6 text-white rounded-t-2xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-20"><BrainCircuit size={100} /></div>
-                <h3 className="text-xl font-bold flex items-center gap-2"><Sparkles /> {t.modal?.title}</h3>
+                <h3 className="text-xl font-bold flex items-center gap-2"><Sparkles /> {t.modal_title}</h3>
               </div>
               <textarea 
-                autoComplete="off" spellCheck={false} data-lpignore="true"
+                autoComplete="new-password" spellCheck={false} data-lpignore="true"
                 value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} 
-                className="w-full h-32 border border-slate-200 rounded-xl p-4 focus:ring-2 focus:ring-indigo-500 outline-none resize-none" placeholder={t.modal?.desc} 
+                className="w-full h-32 border border-slate-200 rounded-xl p-4 focus:ring-2 focus:ring-indigo-500 outline-none resize-none" placeholder={t.modal_desc} 
               />
               <div className="flex justify-end gap-3 mt-6">
-                <button onClick={() => setShowAIModal(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg">{t.modal?.cancel}</button>
+                <button onClick={() => setShowAIModal(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg">{t.modal_cancel}</button>
                 <button onClick={handleAICreate} disabled={!aiPrompt || isGenerating} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg flex items-center gap-2">
-                  {isGenerating ? <Loader2 className="animate-spin" size={16}/> : <Sparkles size={16}/>} {t.modal?.generate}
+                  {isGenerating ? <Loader2 className="animate-spin" size={16}/> : <Sparkles size={16}/>} {t.modal_generate}
                 </button>
               </div>
             </div>
@@ -566,7 +598,6 @@ export default function App() {
         const userCredential = await signInAnonymously(authRef.current);
         await updateProfile(userCredential.user, { displayName: username });
       } catch (e) {
-        // Fallback local user
         setCurrentUser({ uid: 'local', displayName: username } as User);
       }
     } else {
